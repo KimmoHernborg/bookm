@@ -34,7 +34,9 @@ in the repo is `bookm`. Backup options: **Hoardly**, **Stash**, **Squirrel**,
 
 The smallest thing that proves the tagging quality is good enough to use daily:
 
-- Single-user, no auth gate (Better Auth wired but optional in dev).
+- Multi-user with Better Auth enabled from day one. First admin bootstrapped via
+  `ADMIN_EMAIL` env var on startup (if users table is empty, that user is
+  created with `is_admin=true`).
 - Add bookmark by URL (paste in form).
 - Bulk import from Netscape bookmark HTML (Chrome / Firefox / Safari export
   format).
@@ -45,7 +47,7 @@ The smallest thing that proves the tagging quality is good enough to use daily:
 - Docker compose with a Litestream sidecar replicating SQLite to S3-compatible
   storage.
 
-Everything else (auth, extension, snapshots, sharing, mobile) is post-MVP.
+Everything else (extension, snapshots, sharing, mobile) is post-MVP.
 
 ## 4. Core features (full vision)
 
@@ -181,6 +183,17 @@ container plus a Litestream sidecar.
             S3 / R2 / B2
 ```
 
+**Job worker design:**
+
+- Each job handler is an `async` function. The worker runs up to N concurrent
+  jobs via `Promise.all` with a semaphore (default `JOB_CONCURRENCY=3`).
+- Jobs are claimed atomically:
+  `UPDATE jobs SET status='running', claimed_at=unixepoch() WHERE id IN
+  (SELECT id FROM jobs WHERE status='pending' AND next_run_at <= unixepoch()
+  ORDER BY next_run_at LIMIT ?) RETURNING *`
+- Bulk import jobs run in a separate slot capped at concurrency 1 to reduce
+  tag invention races during cold-start.
+
 Job kinds (initial set):
 
 - `fetch_and_extract` — fetch URL, extract main text, store snapshot.
@@ -192,6 +205,33 @@ Job kinds (initial set):
 All handlers are idempotent: a re-run produces the same result for the same
 input. Failures retry with exponential backoff up to N times, then go to
 `status='failed'` and surface in the admin view.
+
+**Tag normalization:** all tags are written as lowercase kebab-case. Before
+inserting, normalize the string, then `INSERT OR IGNORE INTO tags (user_id,
+name)` and resolve to the canonical row. This collapses `JavaScript`,
+`javascript`, and `JS` to `javascript` regardless of which job writes first.
+
+**Extraction content limit:** controlled by `EXTRACTION_MAX_CHARS` env var
+(default `8000`). A per-model override map in config can raise or lower this
+per model (e.g. `{ 'google/gemini-flash-1.5': 12000 }`). The env var is the
+floor/default; the map overrides per model.
+
+**Site-specific extractors (MVP):** YouTube (oEmbed) and GitHub (raw README).
+URL pattern routing is wired for arXiv and Reddit too, but they fall back to
+Readability until implemented post-MVP.
+
+**Snapshot storage:** files stored at `$DATA_DIR/{user_id}/{bookmark_id}.html.gz`
+and `$DATA_DIR/{user_id}/{bookmark_id}.og.jpg`. Only the relative path
+(`{user_id}/{bookmark_id}.html.gz`) is stored in the DB so the root is
+relocatable. `DATA_DIR` defaults to `./data` in dev and `/data` in Docker.
+
+**URL canonicalization:** lowercase host, strip `www.`, drop URL fragment,
+dedup by `(user_id, url_canonical)`. No tracking param stripping (out of
+scope).
+
+**Admin access:** admin routes require a session from a user with `is_admin=true`
+in the Better Auth users table. On startup, if the users table is empty and
+`ADMIN_EMAIL` is set, that user is created with `is_admin=true`.
 
 ## 9. Operational concerns
 
@@ -217,13 +257,15 @@ fetched.
 ## 10. Phased roadmap
 
 **Phase 0 — Foundations (in progress).** Scaffold, Drizzle schema, Better Auth
-disabled in dev, FTS5 wired, basic UI with empty states.
+enabled, FTS5 wired, basic UI with empty states. Admin bootstrap via
+`ADMIN_EMAIL` on first startup.
 
 **Phase 1 — MVP.** Paste-URL + Netscape import → fetch → extract → LLM tag →
-search/list/filter UI → Docker + Litestream. Single user.
+search/list/filter UI → Docker + Litestream. Multi-user from day one.
 
-**Phase 2 — Multi-user + extension.** Better Auth on, OIDC plugin doc'd. WXT
-extension for Chrome + Firefox with one-click save. PWA share target.
+**Phase 2 — Extension + OIDC.** OIDC plugin doc'd for self-hosters
+(PocketID / Authelia / Authentik). WXT extension for Chrome + Firefox with
+one-click save. PWA share target.
 
 **Phase 3 — Quality of life.** Tag merge/rename/color, re-tag job, link-rot
 checker, Wayback snapshot, exporter, bulk operations, keyboard shortcuts.
