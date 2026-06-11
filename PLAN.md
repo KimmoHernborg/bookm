@@ -18,17 +18,12 @@ Linkding) cover bookmarking well, but require manual tagging, which is the
 exact friction that causes hoarding in the first place. The wedge is:
 
 - **Zero-effort save.** Paste / share / bulk-import; tags happen in the background.
-- **Survives link rot.** Every save captures title, summary, content, og-image
-  at ingest time, so the bookmark is still useful when the page 404s.
 - **Self-hostable, single binary + SQLite.** Friendly to the homelab crowd.
+- **Handle invalid links** Log broken links and surface this info in the UI when bulk importing links.
 
 ## 2. Naming
 
-`hoardy` is the most memorable and leans into the audience, but the name is
-already in use by at least one related tool — pick the final name only after a
-namespace check (npm, GitHub org, .com / .app, Chrome Web Store). Working name
-in the repo is `bookm`. Backup options: **Hoardly**, **Stash**, **Squirrel**,
-**Tabby**, **Linkden** (homage).
+Use the name "Bookm" (pronounced "bookmark" without the "ark") for now. It's short, quirky, and available as a domain.
 
 ## 3. MVP scope (two-week target)
 
@@ -44,10 +39,8 @@ The smallest thing that proves the tagging quality is good enough to use daily:
   `{summary, description, tags[], content_type, language, reading_time}`.
 - SQLite + FTS5 search across title, summary, description, and tag names.
 - List view with filters: tag, content type, "read / unread", date added.
-- Docker compose with a Litestream sidecar replicating SQLite to S3-compatible
-  storage.
 
-Everything else (extension, snapshots, sharing, mobile) is post-MVP.
+Everything else (extension, sharing, mobile) is post-MVP.
 
 ## 4. Core features (full vision)
 
@@ -57,12 +50,8 @@ Everything else (extension, snapshots, sharing, mobile) is post-MVP.
 - Search by full-text (FTS5) across title + summary + description + tag names,
   with filters for tag, content type, language, date range, and read state.
 - Tag management: rename, merge, delete, color, hierarchy (optional, later).
-- Re-tag job: when the prompt or model changes, re-run extraction across
-  selected bookmarks.
-- Link rot handling: periodic `HEAD` check, mark as broken, optional Wayback
-  Machine save at ingest.
 - Export to Netscape HTML, JSON, CSV.
-- Public/shared lists (post-MVP, opt-in).
+- Starred links to pin favorites to the main view.
 - Multi-user with Better Auth, including OIDC for self-hosters who want to plug
   PocketID / Authelia / Authentik in.
 
@@ -70,15 +59,9 @@ Everything else (extension, snapshots, sharing, mobile) is post-MVP.
 
 This is the whole product, so design it carefully.
 
-**Controlled vocabulary, model can extend.** Keep a `tags` table per user. On
-each ingest, pass the user's top-N most-used tags into the system prompt and
-ask the model to reuse them where appropriate; only invent a new tag when none
-fit. Normalize on write: lowercase, kebab-case, singular, ASCII-fold. This
-prevents the `js / javascript / JS-language` drift problem.
+**Controlled vocabulary, model can extend.** Keep a `tags` table per user. On each ingest, pass the user's top-N most-used tags into the system prompt and ask the model to reuse them where appropriate; only invent a new tag when none fit. Normalize on write: lowercase, kebab-case, singular, ASCII-fold. This prevents the `js / javascript / JS-language` drift problem.
 
-**One LLM call per bookmark, structured output.** Use OpenRouter with a small,
-cheap model as the default — Haiku, Gemini Flash, or GPT-4o-mini class. Force
-JSON schema output:
+**One LLM call per bookmark, structured output.** Use OpenRouter with a small, cheap model as the default — Haiku, Gemini Flash, or GPT-4o-mini class. Force JSON schema output:
 
 ```ts
 {
@@ -94,40 +77,63 @@ JSON schema output:
 ```
 
 **Reduce tokens before calling.** Mozilla Readability (or `@mozilla/readability`
-in JS) extracts main content, drops nav/footer/ads. Truncate to a sane limit
-(e.g. 8k chars). For YouTube / GitHub / arXiv, use site-specific extractors
-(oEmbed, GitHub README, arXiv abstract API) and skip Readability entirely.
+in JS) extracts main content, drops nav/footer/ads. Truncate to a sane limit (e.g. 8k chars). For YouTube / GitHub / arXiv, use site-specific extractors (oEmbed, GitHub README, arXiv abstract API) and skip Readability entirely.
 
 **Fallback for unfetchable pages.** If fetch fails or content is too thin
 (paywall, login wall, JS-only SPA we can't render), tag from URL + title only
 and mark `extraction_quality: "low"`. Surface this in the UI so the user can
 re-process or fix manually.
 
-**Cost guardrails.** Hard caps per user per day (configurable, default e.g.
-500 tags/day). Bulk imports queue at lower priority and respect the cap;
-they're naturally batched overnight if the cap is reached.
+**Cost guardrails.** Skip for now, but eventually add per-user daily caps and/or budget limits to prevent runaway costs.
 
 ## 6. Data model (sketch)
 
 ```text
-users (id, email, …)                          -- from Better Auth
+users (id, email, …)      -- from Better Auth
 bookmarks (
-  id, user_id, url, url_canonical, title,
-  summary, description, content_type, language,
-  reading_time_minutes, extraction_quality,
-  status,        -- pending | processed | failed | broken
-  starred, archived, read_at,
-  fetched_html_path,    -- on-disk snapshot
-  og_image_path,
-  created_at, updated_at, processed_at, last_checked_at
+  id,
+  user_id,
+  url,
+  url_canonical,
+  title,
+  summary,
+  description,
+  content_type,
+  language,
+  reading_time_minutes,
+  extraction_quality,
+  status,                 -- pending | processed | failed | broken
+  starred,
+  archived,
+  read_at,
+  created_at,
+  updated_at,
+  processed_at,
+  last_checked_at
 )
-tags (id, user_id, name, color, parent_id?)
-bookmark_tags (bookmark_id, tag_id)
+tags (
+  id,
+  user_id,
+  name,
+  color,
+  parent_id?
+)
+bookmark_tags (
+  bookmark_id,
+  tag_id
+)
 jobs (
-  id, kind, payload_json, status, attempts,
-  next_run_at, last_error, created_at, updated_at
+  id,
+  kind,
+  payload_json,
+  status,
+  attempts,
+  next_run_at,
+  last_error,
+  created_at,
+  updated_at
 )
-bookmarks_fts                                 -- FTS5 virtual table mirror
+bookmarks_fts             -- FTS5 virtual table mirror
 ```
 
 URL canonicalization on write: lowercase host, drop `www.`, drop fragment,
@@ -146,23 +152,20 @@ strip known tracking params (`utm_*`, `gclid`, `fbclid`, `mc_cid`,
 | Background jobs    | **In-process SQLite-backed queue**                    | A `jobs` table + a worker loop in the same Bun process. Persistence, retries, and visibility for free, no Redis. Drop in BullMQ only if scale demands it. |
 | LLM                | **OpenRouter**                                        | Default to a cheap model; allow override per user. Optional Ollama base URL for fully local self-hosters.                                                 |
 | Content extraction | **Readability (`@mozilla/readability` + `linkedom`)** | Plus site-specific extractors for YouTube / GitHub / arXiv / Reddit.                                                                                      |
-| Snapshots          | **Wayback Machine save API (optional)**               | Plus on-disk gzipped HTML for the cached extracted text.                                                                                                  |
-| Backups            | **Litestream sidecar**                                | Replicate SQLite to S3 / R2 / B2.                                                                                                                         |
 | Lint / format      | **Biome**                                             | Already configured.                                                                                                                                       |
 | Tests              | **Vitest**                                            | Already configured.                                                                                                                                       |
-| Container          | **Docker + compose**                                  | App image + Litestream sidecar; one named volume.                                                                                                         |
-| Extension          | **WXT**                                               | One codebase → Chrome / Firefox / Edge, MV3.                                                                                                              |
-| Mobile             | **PWA + Web Share Target API**                        | iOS Share Sheet works via the PWA.                                                                                                                        |
+| Container          | **Docker + compose**                                  | App image; one named volume.                                                                                                                              |
+| Extension          | **WXT**                                               | One codebase → Chrome / Firefox / Edge, MV3. (skip for now)                                                                                               |
+| Mobile             | **PWA + Web Share Target API**                        | iOS Share Sheet works via the PWA. (skip for now)                                                                                                         |
 
-Things explicitly cut from the original spec: BullMQ + Redis, hard PocketID
-dependency.
+Things explicitly cut from the original spec: BullMQ + Redis, hard PocketID dependency.
 
 ## 8. Architecture
 
 Single Bun process runs the HTTP server (TanStack Start) and the job worker on
 a timer loop. The worker pulls due rows from `jobs`, executes them with a
 typed handler map, and writes back status. This keeps the deployment to one
-container plus a Litestream sidecar.
+container.
 
 ```text
 ┌─────────────────────── bun process ────────────────────────┐
@@ -178,9 +181,6 @@ container plus a Litestream sidecar.
 │        Readability  ─►  OpenRouter  ─►  tags + summary     │
 │                                                            │
 └────────────────────────────────────────────────────────────┘
-                 │
-                 ▼ (Litestream)
-            S3 / R2 / B2
 ```
 
 **Job worker design:**
@@ -189,14 +189,14 @@ container plus a Litestream sidecar.
   jobs via `Promise.all` with a semaphore (default `JOB_CONCURRENCY=3`).
 - Jobs are claimed atomically:
   `UPDATE jobs SET status='running', claimed_at=unixepoch() WHERE id IN
-  (SELECT id FROM jobs WHERE status='pending' AND next_run_at <= unixepoch()
-  ORDER BY next_run_at LIMIT ?) RETURNING *`
+(SELECT id FROM jobs WHERE status='pending' AND next_run_at <= unixepoch()
+ORDER BY next_run_at LIMIT ?) RETURNING *`
 - Bulk import jobs run in a separate slot capped at concurrency 1 to reduce
   tag invention races during cold-start.
 
 Job kinds (initial set):
 
-- `fetch_and_extract` — fetch URL, extract main text, store snapshot.
+- `fetch_and_extract` — fetch URL, extract main text.
 - `tag_bookmark` — call LLM, write summary/tags.
 - `archive_to_wayback` — optional, fire-and-forget.
 - `recheck_link` — periodic, scheduled per bookmark with jittered backoff.
@@ -220,11 +220,6 @@ floor/default; the map overrides per model.
 URL pattern routing is wired for arXiv and Reddit too, but they fall back to
 Readability until implemented post-MVP.
 
-**Snapshot storage:** files stored at `$DATA_DIR/{user_id}/{bookmark_id}.html.gz`
-and `$DATA_DIR/{user_id}/{bookmark_id}.og.jpg`. Only the relative path
-(`{user_id}/{bookmark_id}.html.gz`) is stored in the DB so the root is
-relocatable. `DATA_DIR` defaults to `./data` in dev and `/data` in Docker.
-
 **URL canonicalization:** lowercase host, strip `www.`, drop URL fragment,
 dedup by `(user_id, url_canonical)`. No tracking param stripping (out of
 scope).
@@ -243,12 +238,9 @@ audit later.
 A small admin route showing: pending / failed jobs, recent errors, per-user
 counts and cost, "broken link" list, and a "retry" button on failed jobs.
 
-**Backups.** Litestream from day one. Document the restore procedure in the
-README and _test it_ before relying on it.
-
-**Privacy.** Fetched pages and snapshots never leave the user's instance
-except for the LLM call itself. Allow choosing the OpenRouter model per user;
-allow swapping in a local Ollama URL.
+**Privacy.** Fetched pages never leave the user's instance for the LLM call
+itself. Allow choosing the OpenRouter model per user; allow swapping in a
+local Ollama URL.
 
 **Rate limits.** Polite outbound fetches: per-host 1 RPS, custom user-agent,
 respect `robots.txt` for explicit `User-agent: *` disallows on the page being
@@ -261,14 +253,14 @@ enabled, FTS5 wired, basic UI with empty states. Admin bootstrap via
 `ADMIN_EMAIL` on first startup.
 
 **Phase 1 — MVP.** Paste-URL + Netscape import → fetch → extract → LLM tag →
-search/list/filter UI → Docker + Litestream. Multi-user from day one.
+search/list/filter UI → Docker. Multi-user from day one.
 
 **Phase 2 — Extension + OIDC.** OIDC plugin doc'd for self-hosters
 (PocketID / Authelia / Authentik). WXT extension for Chrome + Firefox with
 one-click save. PWA share target.
 
-**Phase 3 — Quality of life.** Tag merge/rename/color, re-tag job, link-rot
-checker, Wayback snapshot, exporter, bulk operations, keyboard shortcuts.
+**Phase 3 — Quality of life.** Tag merge/rename/color, re-tag job, exporter,
+bulk operations, keyboard shortcuts.
 
 **Phase 4 — Social / sharing.** Public lists with shareable URLs, opt-in
 discoverable index, RSS feed per list.
@@ -298,8 +290,5 @@ These are the calls to make before Phase 1 starts in earnest:
 
 - Browser sync replacement. This is not a Chrome Sync clone; it's a save-and-
   search tool.
-- A recommendation engine. Maybe later, but not the wedge.
-- A full archival reader (à la Pocket's reader view). The summary + link is
-  enough; the snapshot is a fallback, not a primary reading surface.
 - A team / org tier. Single-user and self-host first; team comes only after
   the single-user product is genuinely good.
