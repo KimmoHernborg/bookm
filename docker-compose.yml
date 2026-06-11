@@ -1,0 +1,28 @@
+services:
+  bookm:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # Generate with: bunx --bun @better-auth/cli secret
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      # Bootstraps the first admin when the users table is empty; the
+      # generated password is printed once in the container logs.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-false}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_DEFAULT_MODEL: ${OPENROUTER_DEFAULT_MODEL:-openai/gpt-4o-mini}
+      EXTRACTION_MAX_CHARS: ${EXTRACTION_MAX_CHARS:-8000}
+      JOB_CONCURRENCY: ${JOB_CONCURRENCY:-3}
+    volumes:
+      - bookm-data:/data
+    healthcheck:
+      test:
+        ["CMD", "bun", "-e", "await fetch('http://localhost:3000/api/healthz').then(r => { if (!r.ok) process.exit(1) })"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  bookm-data:

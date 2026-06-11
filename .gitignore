@@ -11,3 +11,12 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+
+# SQLite data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Claude local settings
+.claude/settings.local.json

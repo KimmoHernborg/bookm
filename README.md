@@ -1,261 +1,69 @@
-Welcome to your new TanStack Start app! 
+# Bookm
 
-# Getting Started
+AI-tagged bookmarking for tab hoarders. Save anything quickly; an LLM reads
+the page, summarizes it, and tags it; find it again later by searching across
+tags, titles, and AI-generated summaries.
 
-To run this application:
+- **Zero-effort save** — paste a URL or bulk-import a browser bookmarks file;
+  tagging happens in the background.
+- **Self-hostable** — single process, SQLite, one Docker volume.
+- **Honest states** — pending, failed, and broken links are shown plainly
+  inline and surfaced in the admin view.
+
+See [PLAN.md](PLAN.md) for the full product plan and [DESIGN.md](DESIGN.md)
+for the design system.
+
+## Getting started (dev)
 
 ```bash
 bun install
-bun --bun run dev
+cp .env.example .env.local   # then fill in the values below
+bun run dev
 ```
 
-# Building For Production
+Required configuration in `.env.local`:
 
-To build this application for production:
+- `BETTER_AUTH_SECRET` — generate with `bunx --bun @better-auth/cli secret`
+- `ADMIN_EMAIL` — on first startup with an empty database this user is
+  created as admin and its generated password is printed once in the server
+  logs
+- `OPENROUTER_API_KEY` — required for AI tagging (bookmarks fail processing
+  without it; jobs can be retried from `/admin` once set)
+
+Registration is closed by default (`REGISTRATION_OPEN=false`); the admin
+creates users from `/admin`.
+
+## How it works
+
+A single process runs the web app (TanStack Start) and a SQLite-backed job
+worker. Saving a URL enqueues `fetch_and_extract` (polite fetch, Readability
+extraction, site-specific extractors for YouTube/GitHub), which enqueues
+`tag_bookmark` (one OpenRouter call with structured output → title, summary,
+description, 3–7 tags, content type, language, reading time). Search is
+SQLite FTS5 across title, summary, description, and tag names.
+
+Per-user model overrides (any OpenRouter slug, or an Ollama-compatible base
+URL for local inference) live in `/settings`.
+
+## Commands
 
 ```bash
-bun --bun run build
+bun run dev        # dev server on :3000
+bun run test       # vitest unit tests
+bun run check      # biome lint + format
+bun run build      # production build (.output/)
+bun run db:generate  # generate drizzle migrations after schema changes
 ```
 
-## Testing
+Migrations in `drizzle/` run automatically on startup.
 
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+## Docker
 
 ```bash
-bun --bun run test
+BETTER_AUTH_SECRET=$(openssl rand -base64 32) \
+ADMIN_EMAIL=you@example.com \
+OPENROUTER_API_KEY=sk-or-... \
+docker compose up --build
 ```
 
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `bun install @tailwindcss/vite tailwindcss -D`
-
-## Linting & Formatting
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
-
-```bash
-bun --bun run lint
-bun --bun run format
-bun --bun run check
-```
-
-
-## Deploy with Nitro
-
-This project uses Nitro as a generic server adapter, so it can run on any Node-compatible host.
-
-```bash
-npm run build
-node dist/server/index.mjs
-```
-
-The build output is a self-contained Node server. To deploy, push the `dist/` directory to your host (Render, Fly.io, your own VPS, etc.) and run the server command above.
-
-For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tuning, see https://v3.nitro.build/deploy.
-
-
-## Shadcn
-
-Add components using the latest version of [Shadcn](https://ui.shadcn.com/).
-
-```bash
-pnpm dlx shadcn@latest add button
-```
-
-
-## Setting up Better Auth
-
-1. Generate and set the `BETTER_AUTH_SECRET` environment variable in your `.env.local`:
-
-   ```bash
-   bunx --bun @better-auth/cli secret
-   ```
-
-2. Visit the [Better Auth documentation](https://www.better-auth.com) to unlock the full potential of authentication in your app.
-
-### Adding a Database (Optional)
-
-Better Auth can work in stateless mode, but to persist user data, add a database:
-
-```typescript
-// src/lib/auth.ts
-import { betterAuth } from "better-auth";
-import { Pool } from "pg";
-
-export const auth = betterAuth({
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL,
-  }),
-  // ... rest of config
-});
-```
-
-Then run migrations:
-
-```bash
-bunx --bun @better-auth/cli migrate
-```
-
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+Data lives in the `bookm-data` named volume. Health check: `GET /api/healthz`.

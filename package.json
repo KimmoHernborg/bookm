@@ -21,6 +21,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-form": "latest",
@@ -39,6 +40,7 @@
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.9",
     "drizzle-orm": "^0.45.1",
+    "linkedom": "^0.18.12",
     "lucide-react": "^0.577.0",
     "nitro": "npm:nitro-nightly@latest",
     "radix-ui": "^1.5.0",
