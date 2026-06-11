@@ -3,7 +3,7 @@
   "mode": "file-router",
   "typescript": true,
   "packageManager": "bun",
-  "includeExamples": true,
+  "includeExamples": false,
   "tailwind": true,
   "addOnOptions": {
     "drizzle": {
@@ -19,10 +19,12 @@
   "chosenAddOns": [
     "biome",
     "nitro",
-    "drizzle",
     "compiler",
+    "drizzle",
+    "form",
     "shadcn",
+    "better-auth",
     "tanstack-query",
-    "better-auth"
+    "store"
   ]
 }
