@@ -1,8 +1,8 @@
+import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 
 import { env } from "#/lib/server/env.ts";
 import * as schema from "./schema.ts";
@@ -11,10 +11,10 @@ function createDb() {
 	const file = resolve(env.databaseUrl);
 	mkdirSync(dirname(file), { recursive: true });
 	const sqlite = new Database(file);
-	sqlite.pragma("journal_mode = WAL");
-	sqlite.pragma("foreign_keys = ON");
-	sqlite.pragma("busy_timeout = 5000");
-	const instance = drizzle(sqlite, { schema });
+	sqlite.run("PRAGMA journal_mode = WAL");
+	sqlite.run("PRAGMA foreign_keys = ON");
+	sqlite.run("PRAGMA busy_timeout = 5000");
+	const instance = drizzle({ client: sqlite, schema });
 	migrate(instance, { migrationsFolder: resolve("./drizzle") });
 	return instance;
 }
