@@ -2,11 +2,12 @@ services:
   bookm:
     build: .
     ports:
-      - "3000:3000"
+      # Host port to publish on; the app listens on 3000 inside the container.
+      - "${PORT:-3000}:3000"
     environment:
       # Generate with: bunx --bun @better-auth/cli secret
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:${PORT:-3000}}
       # Bootstraps the first admin when the users table is empty; the
       # generated password is printed once in the container logs.
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}

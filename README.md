@@ -67,3 +67,5 @@ docker compose up --build
 ```
 
 Data lives in the `bookm-data` named volume. Health check: `GET /api/healthz`.
+
+Set `PORT` to publish on a different host port (default 3000), e.g. `PORT=3001 docker compose up`. The default `BETTER_AUTH_URL` follows it; if you set `BETTER_AUTH_URL` yourself, make sure its port matches. Running the built server directly (`bun .output/server/index.mjs`) also respects `PORT` as the listen port.
