@@ -4,7 +4,7 @@
 		{
 			"name": "bookm",
 			"runtimeExecutable": "bun",
-			"runtimeArgs": ["run", "dev"],
+			"runtimeArgs": ["--bun", "run", "dev"],
 			"port": 3000
 		}
 	]

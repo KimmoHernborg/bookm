@@ -22,7 +22,6 @@ export const user = sqliteTable("user", {
 	image: text("image"),
 	isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
 	openrouterModel: text("openrouter_model"),
-	openrouterBaseUrl: text("openrouter_base_url"),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.default(sql`(unixepoch())`),

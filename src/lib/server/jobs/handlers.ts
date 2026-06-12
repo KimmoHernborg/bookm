@@ -30,11 +30,10 @@ function loadActiveBookmark(bookmarkId: number): Bookmark | null {
 	return bookmark;
 }
 
-function userModel(userId: string): { model: string; baseUrl: string | null } {
+function userModel(userId: string): { model: string } {
 	const [owner] = db.select().from(user).where(eq(user.id, userId)).all();
 	return {
 		model: owner?.openrouterModel || env.openrouterDefaultModel,
-		baseUrl: owner?.openrouterBaseUrl ?? null,
 	};
 }
 
@@ -116,7 +115,7 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 	const bookmark = loadActiveBookmark(payload.bookmarkId);
 	if (!bookmark) return;
 
-	const { model, baseUrl } = userModel(bookmark.userId);
+	const { model } = userModel(bookmark.userId);
 	const output = await generateBookmarkMetadata({
 		url: bookmark.url,
 		title: bookmark.title,
@@ -125,7 +124,6 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 		contentTypeHint: bookmark.contentType,
 		existingTags: topTagsFor(bookmark.userId),
 		model,
-		baseUrl,
 	});
 
 	// Union with existing tags (folder tags from import, manual edits)

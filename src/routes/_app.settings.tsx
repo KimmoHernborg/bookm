@@ -18,14 +18,12 @@ function SettingsView() {
 		queryFn: () => getSettings(),
 	});
 	const [model, setModel] = useState("");
-	const [baseUrl, setBaseUrl] = useState("");
 	const [saved, setSaved] = useState(false);
 	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
 		if (data) {
 			setModel(data.openrouterModel);
-			setBaseUrl(data.openrouterBaseUrl);
 		}
 	}, [data]);
 
@@ -34,7 +32,7 @@ function SettingsView() {
 		setBusy(true);
 		try {
 			await updateSettings({
-				data: { openrouterModel: model, openrouterBaseUrl: baseUrl },
+				data: { openrouterModel: model },
 			});
 			setSaved(true);
 			setTimeout(() => setSaved(false), 2000);
@@ -66,19 +64,6 @@ function SettingsView() {
 					<span className="text-xs text-ink-muted">
 						Any model slug, e.g. anthropic/claude-haiku-4.5. Leave empty for the
 						server default.
-					</span>
-				</label>
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-ink-secondary">API base URL</span>
-					<input
-						value={baseUrl}
-						onChange={(e) => setBaseUrl(e.target.value)}
-						placeholder="https://openrouter.ai/api/v1"
-						className="border border-hairline bg-paper px-3 py-2 text-[13px] outline-none placeholder:text-ink-muted focus:border-accent"
-					/>
-					<span className="text-xs text-ink-muted">
-						Optional — point at an Ollama-compatible endpoint for local
-						inference.
 					</span>
 				</label>
 				<div className="flex items-center gap-3">

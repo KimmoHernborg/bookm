@@ -42,8 +42,7 @@ extraction, site-specific extractors for YouTube/GitHub), which enqueues
 description, 3–7 tags, content type, language, reading time). Search is
 SQLite FTS5 across title, summary, description, and tag names.
 
-Per-user model overrides (any OpenRouter slug, or an Ollama-compatible base
-URL for local inference) live in `/settings`.
+Per-user model overrides (any OpenRouter slug) live in `/settings`.
 
 ## Commands
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { CONTENT_TYPES } from "#/db/schema.ts";
 import { env } from "./env.ts";
 
-const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const LLM_TIMEOUT_MS = 60_000;
 
 export const llmOutputSchema = z.object({
@@ -62,7 +62,6 @@ export type LlmRequest = {
 	contentTypeHint: string | null;
 	existingTags: Array<string>;
 	model: string;
-	baseUrl?: string | null;
 };
 
 function buildPrompt(req: LlmRequest): string {
@@ -97,8 +96,7 @@ export async function generateBookmarkMetadata(
 	if (!env.openrouterApiKey) {
 		throw new Error("OPENROUTER_API_KEY is not set; cannot run tagging");
 	}
-	const baseUrl = (req.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
-	const res = await fetch(`${baseUrl}/chat/completions`, {
+	const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
 		method: "POST",
 		headers: {
 			authorization: `Bearer ${env.openrouterApiKey}`,
