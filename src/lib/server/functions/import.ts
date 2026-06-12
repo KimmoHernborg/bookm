@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "#/db/index.ts";
@@ -93,18 +93,18 @@ export const importNetscape = createServerFn({ method: "POST" })
 export const getImportStatus = createServerFn({ method: "GET" }).handler(
 	async () => {
 		const user = await requireUser();
-		const pending = db
-			.select({ id: bookmarks.id })
+		const [{ pending }] = db
+			.select({ pending: count() })
 			.from(bookmarks)
 			.where(
 				and(eq(bookmarks.userId, user.id), eq(bookmarks.status, "pending")),
 			)
-			.all().length;
-		const broken = db
-			.select({ id: bookmarks.id })
+			.all();
+		const [{ broken }] = db
+			.select({ broken: count() })
 			.from(bookmarks)
 			.where(and(eq(bookmarks.userId, user.id), eq(bookmarks.status, "broken")))
-			.all().length;
+			.all();
 		return { pending, broken };
 	},
 );
