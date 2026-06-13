@@ -69,7 +69,13 @@ export const importNetscape = createServerFn({ method: "POST" })
 			const tagIds = resolveTagIds(user.id, entry.folders);
 			if (tagIds.length > 0) {
 				db.insert(bookmarkTags)
-					.values(tagIds.map((tagId) => ({ bookmarkId: created.id, tagId })))
+					.values(
+						tagIds.map((tagId) => ({
+							bookmarkId: created.id,
+							tagId,
+							userId: user.id,
+						})),
+					)
 					.onConflictDoNothing()
 					.run();
 			}

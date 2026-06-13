@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	foreignKey,
 	index,
 	integer,
 	primaryKey,
@@ -146,6 +147,8 @@ export const bookmarks = sqliteTable(
 		uniqueIndex("bookmarks_user_url_canonical_uq").on(t.userId, t.urlCanonical),
 		index("bookmarks_user_view_idx").on(t.userId, t.archived, t.deletedAt),
 		index("bookmarks_status_idx").on(t.status),
+		// Composite-FK target for bookmark_tags (id + user_id together).
+		uniqueIndex("bookmarks_id_user_uq").on(t.id, t.userId),
 	],
 );
 
@@ -159,22 +162,35 @@ export const tags = sqliteTable(
 		name: text("name").notNull(),
 		color: text("color"),
 	},
-	(t) => [uniqueIndex("tags_user_name_uq").on(t.userId, t.name)],
+	(t) => [
+		uniqueIndex("tags_user_name_uq").on(t.userId, t.name),
+		// Composite-FK target for bookmark_tags (id + user_id together).
+		uniqueIndex("tags_id_user_uq").on(t.id, t.userId),
+	],
 );
 
 export const bookmarkTags = sqliteTable(
 	"bookmark_tags",
 	{
-		bookmarkId: integer("bookmark_id")
+		bookmarkId: integer("bookmark_id").notNull(),
+		tagId: integer("tag_id").notNull(),
+		// Tenant key: composite FKs below force the linked bookmark and tag to
+		// belong to this same user, so a join row can never cross tenants.
+		userId: text("user_id")
 			.notNull()
-			.references(() => bookmarks.id, { onDelete: "cascade" }),
-		tagId: integer("tag_id")
-			.notNull()
-			.references(() => tags.id, { onDelete: "cascade" }),
+			.references(() => user.id, { onDelete: "cascade" }),
 	},
 	(t) => [
 		primaryKey({ columns: [t.bookmarkId, t.tagId] }),
 		index("bookmark_tags_tag_idx").on(t.tagId),
+		foreignKey({
+			columns: [t.bookmarkId, t.userId],
+			foreignColumns: [bookmarks.id, bookmarks.userId],
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.tagId, t.userId],
+			foreignColumns: [tags.id, tags.userId],
+		}).onDelete("cascade"),
 	],
 );
 

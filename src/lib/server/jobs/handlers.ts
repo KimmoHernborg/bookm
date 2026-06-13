@@ -132,7 +132,13 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 	db.transaction((tx) => {
 		if (tagIds.length > 0) {
 			tx.insert(bookmarkTags)
-				.values(tagIds.map((tagId) => ({ bookmarkId: bookmark.id, tagId })))
+				.values(
+					tagIds.map((tagId) => ({
+						bookmarkId: bookmark.id,
+						tagId,
+						userId: bookmark.userId,
+					})),
+				)
 				.onConflictDoNothing()
 				.run();
 		}

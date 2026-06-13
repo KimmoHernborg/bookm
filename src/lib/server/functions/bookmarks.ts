@@ -330,7 +330,13 @@ export const updateBookmark = createServerFn({ method: "POST" })
 			tx.delete(bookmarkTags).where(eq(bookmarkTags.bookmarkId, data.id)).run();
 			if (tagIds.length > 0) {
 				tx.insert(bookmarkTags)
-					.values(tagIds.map((tagId) => ({ bookmarkId: data.id, tagId })))
+					.values(
+						tagIds.map((tagId) => ({
+							bookmarkId: data.id,
+							tagId,
+							userId: user.id,
+						})),
+					)
 					.run();
 			}
 			tx.update(bookmarks)
