@@ -52,14 +52,18 @@ function ImportView() {
 				Firefox, and Safari. Folder names become tags. Duplicates are skipped.
 			</p>
 
-			<label className="mt-6 block w-fit cursor-pointer border border-hairline px-3 py-2 text-[13px] hover:bg-surface">
+			<label
+				htmlFor="import-file"
+				className="mt-6 block w-fit cursor-pointer border border-hairline px-3 py-2 text-[13px] hover:bg-surface focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
+			>
 				{busy ? "Importing…" : "Choose bookmarks file"}
 				<input
+					id="import-file"
 					type="file"
 					accept=".html,.htm,text/html"
 					onChange={(e) => void onFile(e)}
 					disabled={busy}
-					className="hidden"
+					className="sr-only"
 				/>
 			</label>
 
