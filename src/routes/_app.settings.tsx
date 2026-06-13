@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
 	getSettings,
@@ -20,9 +20,11 @@ function SettingsView() {
 	const [model, setModel] = useState("");
 	const [saved, setSaved] = useState(false);
 	const [busy, setBusy] = useState(false);
+	const initialized = useRef(false);
 
 	useEffect(() => {
-		if (data) {
+		if (data && !initialized.current) {
+			initialized.current = true;
 			setModel(data.openrouterModel);
 		}
 	}, [data]);
