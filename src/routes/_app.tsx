@@ -79,6 +79,7 @@ function AddBookmarkForm() {
 function AppShell() {
 	const { user } = Route.useRouteContext();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	return (
 		<div className="min-h-screen">
@@ -121,10 +122,10 @@ function AppShell() {
 						) : null}
 						<button
 							type="button"
-							onClick={() => {
-								void authClient
-									.signOut()
-									.then(() => navigate({ to: "/login" }));
+							onClick={async () => {
+								await authClient.signOut();
+								queryClient.clear();
+								await navigate({ to: "/login" });
 							}}
 							className="text-ink-muted hover:text-ink"
 						>
