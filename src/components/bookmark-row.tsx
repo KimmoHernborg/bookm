@@ -66,6 +66,7 @@ export function BookmarkRow({
 	const [title, setTitle] = useState(item.title ?? "");
 	const [tags, setTags] = useState(item.tags);
 	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	const statusLabel = STATUS_LABELS[item.status];
 	const needsAttention = item.status === "failed" || item.status === "broken";
@@ -78,6 +79,7 @@ export function BookmarkRow({
 	function startEdit() {
 		setTitle(item.title ?? "");
 		setTags(item.tags);
+		setError(null);
 		setEditing(true);
 	}
 
@@ -85,16 +87,24 @@ export function BookmarkRow({
 		const dirty =
 			title !== (item.title ?? "") || tags.join(",") !== item.tags.join(",");
 		if (dirty && !window.confirm("Discard unsaved changes?")) return;
+		setError(null);
 		setEditing(false);
 	}
 
 	async function saveEdit(event: React.FormEvent) {
 		event.preventDefault();
 		setSaving(true);
+		setError(null);
 		try {
 			await updateBookmark({ data: { id: item.id, title, tags } });
 			setEditing(false);
 			invalidate();
+		} catch (err) {
+			setError(
+				err instanceof Error
+					? err.message
+					: "Failed to save. Please try again.",
+			);
 		} finally {
 			setSaving(false);
 		}
@@ -211,6 +221,11 @@ export function BookmarkRow({
 							suggestions={tagSuggestions}
 						/>
 					</div>
+					{error ? (
+						<p role="alert" className="text-[13px] text-ink-muted">
+							{error}
+						</p>
+					) : null}
 					<div className="flex items-center gap-3">
 						<button
 							type="submit"
