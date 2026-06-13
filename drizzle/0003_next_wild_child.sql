@@ -1,3 +1,10 @@
+--> Parent unique indexes must exist BEFORE the composite FKs on bookmark_tags
+--> are resolved, otherwise SQLite raises "foreign key mismatch" when the new
+--> table is populated. Drizzle wraps migrations in a transaction, where the
+--> PRAGMA foreign_keys toggles below are no-ops, so foreign keys stay enabled
+--> during the rebuild and the indexes are genuinely required up front.
+CREATE UNIQUE INDEX `bookmarks_id_user_uq` ON `bookmarks` (`id`,`user_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `tags_id_user_uq` ON `tags` (`id`,`user_id`);--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_bookmark_tags` (
 	`bookmark_id` integer NOT NULL,
@@ -13,6 +20,4 @@ INSERT INTO `__new_bookmark_tags`("bookmark_id", "tag_id", "user_id") SELECT bt.
 DROP TABLE `bookmark_tags`;--> statement-breakpoint
 ALTER TABLE `__new_bookmark_tags` RENAME TO `bookmark_tags`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
-CREATE INDEX `bookmark_tags_tag_idx` ON `bookmark_tags` (`tag_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `bookmarks_id_user_uq` ON `bookmarks` (`id`,`user_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `tags_id_user_uq` ON `tags` (`id`,`user_id`);
+CREATE INDEX `bookmark_tags_tag_idx` ON `bookmark_tags` (`tag_id`);
