@@ -174,7 +174,14 @@ export const handlers: {
 // failure on the bookmark itself so the UI can show it inline.
 export function onJobExhausted(payload: JobPayload) {
 	const bookmark = loadActiveBookmark(payload.bookmarkId);
-	if (!bookmark || bookmark.status === "broken") return;
+	// Never clobber a final state: "broken" (URL unreachable) and "processed"
+	// (succeeded) must survive a later/stale job exhausting its retries.
+	if (
+		!bookmark ||
+		bookmark.status === "broken" ||
+		bookmark.status === "processed"
+	)
+		return;
 	db.update(bookmarks)
 		.set({ status: "failed", updatedAt: new Date() })
 		.where(eq(bookmarks.id, payload.bookmarkId))
