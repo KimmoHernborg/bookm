@@ -6,7 +6,10 @@ function intEnv(value: string | undefined, fallback: number): number {
 export const env = {
 	databaseUrl: process.env.DATABASE_URL ?? "./data/bookm.db",
 	dataDir: process.env.DATA_DIR ?? "./data",
-	adminEmail: process.env.ADMIN_EMAIL,
+	// Canonicalized to match Better Auth, which lowercases emails on sign-up
+	// and lookup. Keeps the admin bootstrap lookup (init.ts) in sync with the
+	// stored row regardless of how ADMIN_EMAIL is cased.
+	adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase(),
 	registrationOpen: process.env.REGISTRATION_OPEN === "true",
 	openrouterApiKey: process.env.OPENROUTER_API_KEY,
 	openrouterDefaultModel:
