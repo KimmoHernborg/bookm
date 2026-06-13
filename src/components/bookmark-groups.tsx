@@ -14,14 +14,14 @@ export function BookmarkGroups({
 		<div className="flex flex-col gap-8">
 			{groups.map((group) => (
 				<section key={group.tag ?? "__untagged__"}>
-					<h2 className="text-[11px] font-semibold tracking-[0.10em] uppercase text-ink-secondary">
+					<h2 className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
 						{group.tag ?? "Untagged"}
 					</h2>
 					<div className="mt-1 mb-2 border-t border-hairline" />
 					<ul>
 						{group.bookmarks.map((item) => (
 							<BookmarkRow
-								key={`${group.tag ?? "untagged"}-${item.id}`}
+								key={`${group.tag ?? "__reserved_untagged"}-${item.id}`}
 								item={item}
 								view={view}
 								tagSuggestions={tagSuggestions}
