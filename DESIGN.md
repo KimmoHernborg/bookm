@@ -16,36 +16,36 @@ The system explicitly rejects image-led bookmarking (Raindrop / Pocket thumbnail
 **Key Characteristics:**
 
 - Text-first and information-dense, with hierarchy carried by type scale and weight, not boxes.
-- Restrained color: warm paper neutrals, one deep ink-blue accent used sparingly.
+- Restrained color: warm paper neutrals, one deep pine-green accent used sparingly.
 - Flat surfaces, restrained motion: state changes only, no choreography.
 - Honest states: pending, failed, and broken items shown plainly inline.
 
 ## 2. Colors
 
-Warm paper-tinted neutrals with a single deep ink-blue accent: a page, ink on it, and nothing else competing.
+Warm paper-tinted neutrals with a single deep pine-green accent: a page, ink on it, and nothing else competing.
 
-All values use OKLCH. Hue angle 250–258 (blue-shifted neutral) throughout. No pure black or white.
+All values use OKLCH. Neutrals sit at hue 79 (warm paper); the accent at hue 135 (pine green). No pure black or white.
 
 ### Primary
 
-- **Deep Ink Blue** `oklch(30% 0.115 258)`: the one accent. Links at active/focus, primary action, selected tag in the rail. Hover darkens to `oklch(26% 0.125 258)`. Covers at most 10% of any screen.
+- **Deep Pine** `oklch(0.3676 0.0839 135.53)`: the one accent. Links at active/focus, primary action, selected tag in the rail. Hover darkens to `oklch(0.3088 0.0617 135.819503)`. Covers at most 10% of any screen.
 
 ### Neutral
 
-| Token           | Value                    | Use                                              |
-| --------------- | ------------------------ | ------------------------------------------------ |
-| `paper`         | `oklch(97.5% 0.005 250)` | Page background                                  |
-| `surface`       | `oklch(94% 0.006 250)`   | Row hover, tag rail active background            |
-| `hairline`      | `oklch(89% 0.007 250)`   | 1px section dividers (tag groups only)           |
-| `ink`           | `oklch(16% 0.010 250)`   | Primary text, bookmark titles                    |
-| `ink-secondary` | `oklch(47% 0.009 250)`   | Domain, counts, tag rail labels, section headers |
-| `ink-muted`     | `oklch(64% 0.007 250)`   | "processing…" and other inline status labels     |
+| Token           | Value                       | Use                                              |
+| --------------- | --------------------------- | ------------------------------------------------ |
+| `paper`         | `oklch(0.9667 0.005 79.41)` | Page background                                  |
+| `surface`       | `oklch(0.94 0.006 79.41)`   | Row hover, tag rail active background            |
+| `hairline`      | `oklch(0.89 0.007 79.41)`   | 1px section dividers (tag groups only)           |
+| `ink`           | `oklch(0.16 0.01 79.41)`    | Primary text, bookmark titles                    |
+| `ink-secondary` | `oklch(0.47 0.009 79.41)`   | Domain, counts, tag rail labels, section headers |
+| `ink-muted`     | `oklch(0.64 0.007 79.41)`   | "processing…" and other inline status labels     |
 
 ### Named Rules
 
-**The Ink Budget Rule.** The ink-blue accent covers at most 10% of any screen. If a screen feels flat, the fix is typographic hierarchy, never more accent.
+**The Ink Budget Rule.** The pine-green accent covers at most 10% of any screen. If a screen feels flat, the fix is typographic hierarchy, never more accent.
 
-**The Tinted Page Rule.** Every neutral is tinted toward the ink hue (OKLCH chroma 0.005 to 0.01). Pure black and pure white are prohibited.
+**The Tinted Page Rule.** Every neutral is tinted toward the warm paper hue (OKLCH chroma 0.005 to 0.01). Pure black and pure white are prohibited.
 
 ## 3. Typography
 
@@ -82,7 +82,7 @@ Flat by default. Depth is conveyed through background tint shifts and hairline b
 
 **Theme scene:** A person in a quiet room in the evening, browser closed, scanning a printed index with a cup of coffee nearby, looking for a specific article they saved three weeks ago. Light mode. Ambient warmth. Paper quality.
 
-**Color strategy:** Restrained. Warm paper neutrals carry the surface; the ink-blue accent appears only on the active/selected tag in the rail and on focused/hovered link text.
+**Color strategy:** Restrained. Warm paper neutrals carry the surface; the pine-green accent appears only on the active/selected tag in the rail and on focused/hovered link text.
 
 **Anchor references:** iA Writer (radical text-first density), Linear issue list (precise row spacing, hover-reveal actions), Pelican Books index (typographic hierarchy through weight, no chrome).
 

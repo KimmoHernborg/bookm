@@ -6,14 +6,14 @@
    Warm paper neutrals, one deep ink-blue accent, OKLCH throughout.
    No pure black or white (The Tinted Page Rule). */
 @theme {
-	--color-paper: oklch(97.5% 0.005 250);
-	--color-surface: oklch(94% 0.006 250);
-	--color-hairline: oklch(89% 0.007 250);
-	--color-ink: oklch(16% 0.01 250);
-	--color-ink-secondary: oklch(47% 0.009 250);
-	--color-ink-muted: oklch(64% 0.007 250);
-	--color-accent: oklch(30% 0.115 258);
-	--color-accent-hover: oklch(26% 0.125 258);
+	--color-paper: oklch(0.9667 0.005 79.41);
+	--color-surface: oklch(0.94 0.006 79.41);
+	--color-hairline: oklch(0.89 0.007 79.41);
+	--color-ink: oklch(0.16 0.01 79.41);
+	--color-ink-secondary: oklch(0.47 0.009 79.41);
+	--color-ink-muted: oklch(0.64 0.007 79.41);
+	--color-accent: oklch(0.3676 0.0839 135.53);
+	--color-accent-hover: oklch(0.3088 0.0617 135.819503);
 
 	--font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
 }
