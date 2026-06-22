@@ -36,6 +36,8 @@ const responseJsonSchema = {
 		tags: {
 			type: "array",
 			items: { type: "string" },
+			minItems: 1,
+			maxItems: 10,
 			description: "3-7 tags, prefer the user's existing tags",
 		},
 		content_type: { type: "string", enum: [...CONTENT_TYPES] },
