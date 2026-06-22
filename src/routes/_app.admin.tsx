@@ -19,7 +19,13 @@ export const Route = createFileRoute("/_app/admin")({
 });
 
 function formatDate(ms: number): string {
-	return new Date(ms).toISOString().slice(0, 16).replace("T", " ");
+	return new Date(ms).toLocaleString(undefined, {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
