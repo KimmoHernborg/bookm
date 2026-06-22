@@ -85,7 +85,11 @@ function AppShell() {
 		<div className="min-h-screen">
 			<header className="border-b border-hairline">
 				<div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
-					<Link to="/" className="text-[15px] font-semibold tracking-tight">
+					<Link
+						to="/"
+						className="text-[15px] font-semibold tracking-tight logo"
+					>
+						<img src="/bookm.svg" alt="Bookm logo" className="inline h-5 w-5" />
 						Bookm
 					</Link>
 					<AddBookmarkForm />

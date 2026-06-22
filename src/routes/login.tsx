@@ -42,7 +42,10 @@ function LoginPage() {
 
 	return (
 		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-6">
-			<h1 className="text-2xl font-semibold tracking-tight">Bookm</h1>
+			<h1 className="text-2xl font-semibold tracking-tight logo">
+				<img src="/bookm.svg" alt="Bookm logo" className="inline h-5 w-5" />
+				Bookm
+			</h1>
 			<p className="mt-1 text-xs text-ink-secondary">
 				AI-tagged bookmarking for tab hoarders.
 			</p>

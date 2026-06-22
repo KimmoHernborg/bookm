@@ -26,6 +26,14 @@ body {
 	line-height: 1.5;
 }
 
+.logo {
+	color: var(--color-accent);
+	font-optical-sizing: auto;
+	font-weight: 900;
+	font-style: normal;
+	text-transform: uppercase;
+}
+
 ::selection {
 	background-color: var(--color-accent);
 	color: var(--color-paper);
