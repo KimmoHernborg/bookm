@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+@import 'tw-animate-css';
+
+/* Bookm design tokens — see DESIGN.md ("The Quiet Index").
+   Warm paper neutrals, one deep ink-blue accent, OKLCH throughout.
+   No pure black or white (The Tinted Page Rule). */
+@theme {
+	--color-paper: oklch(0.9667 0.005 79.41);
+	--color-surface: oklch(0.94 0.006 79.41);
+	--color-hairline: oklch(0.89 0.007 79.41);
+	--color-ink: oklch(0.16 0.01 79.41);
+	--color-ink-secondary: oklch(0.47 0.009 79.41);
+	--color-ink-muted: oklch(0.64 0.007 79.41);
+	--color-accent: oklch(0.3676 0.0839 135.53);
+	--color-accent-hover: oklch(0.3088 0.0617 135.819503);
+
+	--font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+	background-color: var(--color-paper);
+	color: var(--color-ink);
+	font-family: var(--font-sans);
+	font-size: 0.9375rem; /* 15px body */
+	line-height: 1.5;
+}
+
+.logo {
+	color: var(--color-accent);
+	font-optical-sizing: auto;
+	font-weight: 900;
+	font-style: normal;
+	text-transform: uppercase;
+}
+
+::selection {
+	background-color: var(--color-accent);
+	color: var(--color-paper);
+}

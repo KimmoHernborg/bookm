@@ -1,7 +1,11 @@
 {
-  "short_name": "TanStack App",
-  "name": "Create TanStack App Sample",
+  "short_name": "bookm",
+  "name": "AI-tagged bookmarking for tab hoarders. Save anything quickly; an LLM reads the page, summarizes it, and tags it; find it again later by searching across tags, titles, and AI-generated summaries.",
   "icons": [
+    {
+      "src": "bookm.svg",
+      "type": "image/svg+xml"
+    },
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
