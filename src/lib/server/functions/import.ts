@@ -54,33 +54,39 @@ export const importNetscape = createServerFn({ method: "POST" })
 			}
 			existing.add(urlCanonical);
 
-			const [created] = db
-				.insert(bookmarks)
-				.values({
-					userId: user.id,
-					url: entry.url,
-					urlCanonical,
-					title: entry.title || null,
-				})
-				.returning({ id: bookmarks.id })
-				.all();
+			// Insert the bookmark, its folder-derived tags, the FTS row, and the
+			// fetch job atomically so a thrown error can't leave a half-imported
+			// bookmark behind. All calls share the single bun:sqlite connection,
+			// so the helpers below run inside this transaction too.
+			db.transaction((tx) => {
+				const [created] = tx
+					.insert(bookmarks)
+					.values({
+						userId: user.id,
+						url: entry.url,
+						urlCanonical,
+						title: entry.title || null,
+					})
+					.returning({ id: bookmarks.id })
+					.all();
 
-			// Folder names become tags right away; the LLM adds more later.
-			const tagIds = resolveTagIds(user.id, entry.folders);
-			if (tagIds.length > 0) {
-				db.insert(bookmarkTags)
-					.values(
-						tagIds.map((tagId) => ({
-							bookmarkId: created.id,
-							tagId,
-							userId: user.id,
-						})),
-					)
-					.onConflictDoNothing()
-					.run();
-			}
-			syncBookmarkFts(created.id);
-			enqueueJob({ kind: "fetch_and_extract", bookmarkId: created.id });
+				// Folder names become tags right away; the LLM adds more later.
+				const tagIds = resolveTagIds(user.id, entry.folders);
+				if (tagIds.length > 0) {
+					tx.insert(bookmarkTags)
+						.values(
+							tagIds.map((tagId) => ({
+								bookmarkId: created.id,
+								tagId,
+								userId: user.id,
+							})),
+						)
+						.onConflictDoNothing()
+						.run();
+				}
+				syncBookmarkFts(created.id);
+				enqueueJob({ kind: "fetch_and_extract", bookmarkId: created.id });
+			});
 			imported++;
 		}
 
