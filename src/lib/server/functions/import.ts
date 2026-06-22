@@ -26,18 +26,43 @@ export const importNetscape = createServerFn({ method: "POST" })
 		const user = await requireUser();
 		const parsed = parseNetscapeBookmarks(data.html);
 
-		const existing = new Set(
-			db
-				.select({ urlCanonical: bookmarks.urlCanonical })
-				.from(bookmarks)
-				.where(eq(bookmarks.userId, user.id))
-				.all()
-				.map((row) => row.urlCanonical),
-		);
+		// Track existing rows by canonical URL along with their soft-delete
+		// state: only active rows are true duplicates; a soft-deleted row is
+		// restored on re-import (mirroring addBookmark), not skipped.
+		const existing = new Map<string, { id: number; deletedAt: Date | null }>();
+		for (const row of db
+			.select({
+				id: bookmarks.id,
+				urlCanonical: bookmarks.urlCanonical,
+				deletedAt: bookmarks.deletedAt,
+			})
+			.from(bookmarks)
+			.where(eq(bookmarks.userId, user.id))
+			.all()) {
+			existing.set(row.urlCanonical, { id: row.id, deletedAt: row.deletedAt });
+		}
 
 		let imported = 0;
 		let skippedDuplicates = 0;
 		let invalid = 0;
+
+		// Folder names become tags right away; the LLM adds more later.
+		type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+		function linkFolderTags(tx: Tx, bookmarkId: number, folders: Array<string>) {
+			const tagIds = resolveTagIds(user.id, folders);
+			if (tagIds.length > 0) {
+				tx.insert(bookmarkTags)
+					.values(
+						tagIds.map((tagId) => ({
+							bookmarkId,
+							tagId,
+							userId: user.id,
+						})),
+					)
+					.onConflictDoNothing()
+					.run();
+			}
+		}
 
 		for (const entry of parsed) {
 			let urlCanonical: string;
@@ -47,18 +72,36 @@ export const importNetscape = createServerFn({ method: "POST" })
 				invalid++;
 				continue;
 			}
-			// Duplicates against the library and within the file itself.
-			if (existing.has(urlCanonical)) {
+
+			const prior = existing.get(urlCanonical);
+			// An active row (in the library or already handled earlier in this
+			// file) is a genuine duplicate; skip it.
+			if (prior && prior.deletedAt === null) {
 				skippedDuplicates++;
 				continue;
 			}
-			existing.add(urlCanonical);
 
-			// Insert the bookmark, its folder-derived tags, the FTS row, and the
-			// fetch job atomically so a thrown error can't leave a half-imported
-			// bookmark behind. All calls share the single bun:sqlite connection,
-			// so the helpers below run inside this transaction too.
-			db.transaction((tx) => {
+			// Each branch runs in a transaction so the bookmark, its tags, the
+			// FTS row, and the fetch job commit or roll back together. All calls
+			// share the single bun:sqlite connection, so the helpers below
+			// participate in the transaction too.
+			if (prior) {
+				// Soft-deleted row: restore it instead of skipping.
+				db.transaction((tx) => {
+					tx.update(bookmarks)
+						.set({ deletedAt: null, archived: false, updatedAt: new Date() })
+						.where(eq(bookmarks.id, prior.id))
+						.run();
+					linkFolderTags(tx, prior.id, entry.folders);
+					syncBookmarkFts(prior.id);
+					enqueueJob({ kind: "fetch_and_extract", bookmarkId: prior.id });
+				});
+				existing.set(urlCanonical, { id: prior.id, deletedAt: null });
+				imported++;
+				continue;
+			}
+
+			const newId = db.transaction((tx) => {
 				const [created] = tx
 					.insert(bookmarks)
 					.values({
@@ -69,24 +112,12 @@ export const importNetscape = createServerFn({ method: "POST" })
 					})
 					.returning({ id: bookmarks.id })
 					.all();
-
-				// Folder names become tags right away; the LLM adds more later.
-				const tagIds = resolveTagIds(user.id, entry.folders);
-				if (tagIds.length > 0) {
-					tx.insert(bookmarkTags)
-						.values(
-							tagIds.map((tagId) => ({
-								bookmarkId: created.id,
-								tagId,
-								userId: user.id,
-							})),
-						)
-						.onConflictDoNothing()
-						.run();
-				}
+				linkFolderTags(tx, created.id, entry.folders);
 				syncBookmarkFts(created.id);
 				enqueueJob({ kind: "fetch_and_extract", bookmarkId: created.id });
+				return created.id;
 			});
+			existing.set(urlCanonical, { id: newId, deletedAt: null });
 			imported++;
 		}
 
