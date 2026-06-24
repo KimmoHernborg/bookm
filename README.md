@@ -1,4 +1,4 @@
-<div align="center"><img width="300" height="86" alt="Bookm logo" src="https://github.com/user-attachments/assets/25279d30-4f42-44f0-b2a2-d83414dfdeab" /></div>
+<div align="center"><img width="300" height="86" alt="Bookm logo" src="./public/bookm-logo.svg" /></div>
 
 # Bookm
 
