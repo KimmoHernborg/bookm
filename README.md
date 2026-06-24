@@ -1,3 +1,5 @@
+<div align="center"><img width="300" height="86" alt="Bookm logo" src="./public/bookm-logo.svg" /></div>
+
 # Bookm
 
 AI-tagged bookmarking for tab hoarders. Save anything quickly; an LLM reads
