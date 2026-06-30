@@ -45,7 +45,7 @@ function SettingsView() {
 	}
 
 	return (
-		<main className="mx-auto max-w-2xl px-6 py-6">
+		<main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
 			<h1 className="text-[15px] font-semibold">Settings</h1>
 			{data ? (
 				<p className="mt-1 text-[13px] text-ink-secondary">
@@ -61,7 +61,7 @@ function SettingsView() {
 						placeholder={
 							data ? `Server default: ${data.serverDefaultModel}` : ""
 						}
-						className="border border-hairline bg-paper px-3 py-2 text-[13px] outline-none placeholder:text-ink-muted focus:border-accent"
+						className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:text-[13px]"
 					/>
 					<span className="text-xs text-ink-muted">
 						Any model slug, e.g. anthropic/claude-haiku-4.5. Leave empty for the

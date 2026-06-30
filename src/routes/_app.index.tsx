@@ -45,11 +45,11 @@ function MainView() {
 	const hasAnything = (data?.total ?? 0) > 0 || q || tag || contentType || date;
 
 	return (
-		<div className="mx-auto flex max-w-6xl gap-10 px-6 py-6 max-[959px]:flex-col">
+		<div className="mx-auto flex max-w-6xl gap-10 px-4 py-6 max-[959px]:flex-col max-[959px]:gap-6 sm:px-6">
 			<aside className="min-[960px]:sticky min-[960px]:top-6 min-[960px]:max-h-[calc(100vh-3rem)] min-[960px]:w-[180px] min-[960px]:shrink-0 min-[960px]:overflow-y-auto">
 				<nav
 					aria-label="Tags"
-					className="flex gap-1 max-[959px]:overflow-x-auto min-[960px]:flex-col"
+					className="flex gap-1 max-[959px]:overflow-x-auto max-[959px]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.5rem),transparent)] min-[960px]:flex-col"
 				>
 					<RailItem
 						label="All bookmarks"
@@ -66,7 +66,7 @@ function MainView() {
 						/>
 					))}
 					{data && data.untaggedCount > 0 ? (
-						<span className="px-2 py-1 text-[13px] text-ink-muted">
+						<span className="px-2 py-1.5 text-[13px] text-ink-muted">
 							Untagged ({data.untaggedCount})
 						</span>
 					) : null}
@@ -81,7 +81,7 @@ function MainView() {
 						onChange={(e) => setQ(e.target.value)}
 						placeholder={tag ? `Search in ${tag}` : "Search"}
 						aria-label="Search bookmarks"
-						className="w-full max-w-xs border border-hairline bg-paper px-3 py-1.5 text-[13px] outline-none placeholder:text-ink-muted focus:border-accent"
+						className="w-full max-w-xs border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:text-[13px]"
 					/>
 					<select
 						value={contentType ?? ""}
@@ -91,7 +91,7 @@ function MainView() {
 							)
 						}
 						aria-label="Filter by content type"
-						className="border border-hairline bg-paper px-2 py-1.5 text-[13px] text-ink-secondary outline-none focus:border-accent"
+						className="border border-hairline bg-paper px-2 py-1.5 text-[16px] text-ink-secondary outline-none focus:border-accent max-[959px]:flex-1 min-[960px]:text-[13px]"
 					>
 						<option value="">All types</option>
 						{CONTENT_TYPES.map((type) => (
@@ -106,7 +106,7 @@ function MainView() {
 							setDate((e.target.value || undefined) as DateFilter | undefined)
 						}
 						aria-label="Filter by date added"
-						className="border border-hairline bg-paper px-2 py-1.5 text-[13px] text-ink-secondary outline-none focus:border-accent"
+						className="border border-hairline bg-paper px-2 py-1.5 text-[16px] text-ink-secondary outline-none focus:border-accent max-[959px]:flex-1 min-[960px]:text-[13px]"
 					>
 						<option value="">Any time</option>
 						<option value="today">Today</option>
@@ -155,7 +155,7 @@ function RailItem({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`flex items-baseline justify-between gap-2 whitespace-nowrap px-2 py-1 text-left text-[13px] ${
+			className={`flex items-baseline justify-between gap-2 whitespace-nowrap px-2 py-1.5 text-left text-[13px] [@media(hover:none)]:py-2 ${
 				active
 					? "bg-surface font-medium text-ink"
 					: "text-ink-secondary hover:text-ink"

@@ -35,16 +35,20 @@ function ActionButton({
 	children: React.ReactNode;
 	alwaysVisible?: boolean;
 }) {
+	// Two responsive axes: [@media(hover:none)] reveals actions on touch devices
+	// (which never fire :hover); min-[960px] restores the exact desktop p-1
+	// geometry. Keep both — a width-only variant would re-hide every action on
+	// touch, which is the bug this fixes.
 	return (
 		<button
 			type="button"
 			title={label}
 			aria-label={label}
 			onClick={onClick}
-			className={`p-1 text-ink-muted hover:text-ink focus-visible:opacity-100 focus-visible:outline-1 focus-visible:outline-accent ${
+			className={`-m-1 p-2 text-ink-muted hover:text-ink focus-visible:opacity-100 focus-visible:outline-1 focus-visible:outline-accent min-[960px]:m-0 min-[960px]:p-1 ${
 				alwaysVisible
 					? ""
-					: "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+					: "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
 			}`}
 		>
 			{children}
@@ -112,12 +116,13 @@ export function BookmarkRow({
 
 	return (
 		<li className="group -mx-2 px-2 py-1 hover:bg-surface">
-			<div className="flex items-baseline gap-2">
+			<div className="flex items-baseline gap-2 max-[959px]:items-center">
 				<span className="relative min-w-0 flex-1 truncate">
 					<a
 						href={item.url}
 						target="_blank"
 						rel="noreferrer"
+						title={item.description || undefined}
 						className="peer text-[15px] font-[450] text-ink hover:text-accent focus-visible:text-accent focus-visible:outline-none"
 					>
 						{item.title || item.url}
@@ -125,13 +130,13 @@ export function BookmarkRow({
 					{item.description ? (
 						<span
 							role="tooltip"
-							className="pointer-events-none absolute top-full left-0 z-20 mt-1 hidden w-max max-w-prose border border-hairline bg-paper px-3 py-2 text-[13px] leading-relaxed text-ink-secondary whitespace-normal shadow-sm peer-hover:block peer-focus-visible:block"
+							className="pointer-events-none absolute top-full left-0 z-20 mt-1 hidden w-max max-w-[min(36rem,calc(100vw-3rem))] border border-hairline bg-paper px-3 py-2 text-[13px] leading-relaxed text-ink-secondary whitespace-normal shadow-sm peer-hover:block peer-focus-visible:block"
 						>
 							{item.description}
 						</span>
 					) : null}
 				</span>
-				<span className="shrink-0 text-xs text-ink-secondary">
+				<span className="hidden shrink-0 text-xs text-ink-secondary min-[480px]:inline">
 					{item.domain}
 				</span>
 				{statusLabel ? (
@@ -210,7 +215,7 @@ export function BookmarkRow({
 						<input
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
-							className="border border-hairline bg-paper px-2 py-1.5 text-[13px] outline-none focus:border-accent"
+							className="border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
 						/>
 					</label>
 					<div className="flex flex-col gap-1">
