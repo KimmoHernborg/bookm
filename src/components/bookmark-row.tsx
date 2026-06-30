@@ -122,7 +122,6 @@ export function BookmarkRow({
 						href={item.url}
 						target="_blank"
 						rel="noreferrer"
-						title={item.description || undefined}
 						className="peer text-[15px] font-[450] text-ink hover:text-accent focus-visible:text-accent focus-visible:outline-none"
 					>
 						{item.title || item.url}
