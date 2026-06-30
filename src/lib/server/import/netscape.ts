@@ -14,6 +14,7 @@ const IGNORED_FOLDERS = new Set([
 	"bookmarks bar",
 	"bookmarks menu",
 	"bookmarks toolbar",
+	"bokmärkesfältet",
 	"other bookmarks",
 	"mobile bookmarks",
 	"imported",
