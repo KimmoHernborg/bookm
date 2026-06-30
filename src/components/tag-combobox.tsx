@@ -104,7 +104,7 @@ export function TagCombobox({
 					onBlur={() => setTimeout(() => setOpen(false), 150)}
 					onKeyDown={onKeyDown}
 					placeholder={value.length === 0 ? "Add tags…" : ""}
-					className="min-w-24 flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-muted"
+					className="min-w-24 flex-1 bg-transparent text-[16px] outline-none placeholder:text-ink-muted min-[960px]:text-[13px]"
 				/>
 			</div>
 			{open && filtered.length > 0 ? (

@@ -31,7 +31,7 @@ function ArchivedView() {
 	}
 
 	return (
-		<main className="mx-auto max-w-6xl px-6 py-6">
+		<main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
 			<div className="flex items-center justify-between">
 				<h1 className="text-[15px] font-semibold">Archived</h1>
 				{data && data.total > 0 ? (

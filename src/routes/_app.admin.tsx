@@ -72,14 +72,14 @@ function AdminView() {
 
 	if (!data) {
 		return (
-			<main className="mx-auto max-w-6xl px-6 py-6">
+			<main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
 				<p className="text-[13px] text-ink-muted">Loading…</p>
 			</main>
 		);
 	}
 
 	return (
-		<main className="mx-auto max-w-6xl px-6 py-6">
+		<main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
 			<h1 className="text-[15px] font-semibold">Admin</h1>
 
 			<SectionHeading>Stats</SectionHeading>
@@ -192,7 +192,7 @@ function AdminView() {
 
 			<form
 				onSubmit={onCreateUser}
-				className="mt-4 flex flex-wrap items-end gap-2"
+				className="mt-4 flex flex-wrap items-end gap-2 max-[959px]:flex-col max-[959px]:items-stretch"
 			>
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-ink-secondary">Email</span>
@@ -201,7 +201,7 @@ function AdminView() {
 						required
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
-						className="border border-hairline bg-paper px-2 py-1.5 text-[13px] outline-none focus:border-accent"
+						className="w-full border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:w-auto min-[960px]:text-[13px]"
 					/>
 				</label>
 				<label className="flex flex-col gap-1">
@@ -210,7 +210,7 @@ function AdminView() {
 						required
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="border border-hairline bg-paper px-2 py-1.5 text-[13px] outline-none focus:border-accent"
+						className="w-full border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:w-auto min-[960px]:text-[13px]"
 					/>
 				</label>
 				<label className="flex flex-col gap-1">
@@ -221,7 +221,7 @@ function AdminView() {
 						minLength={8}
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
-						className="border border-hairline bg-paper px-2 py-1.5 text-[13px] outline-none focus:border-accent"
+						className="w-full border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:w-auto min-[960px]:text-[13px]"
 					/>
 				</label>
 				<button

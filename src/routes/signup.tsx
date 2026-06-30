@@ -35,7 +35,7 @@ function SignupPage() {
 	}
 
 	return (
-		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-6">
+		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 sm:px-6">
 			<h1 className="text-2xl font-semibold tracking-tight logo">
 				<img src="/bookm.svg" alt="Bookm logo" className="inline h-5 w-5" />
 				Bookm
@@ -48,7 +48,7 @@ function SignupPage() {
 						required
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="border border-hairline bg-paper px-3 py-2 text-[15px] outline-none focus:border-accent"
+						className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent"
 					/>
 				</label>
 				<label className="flex flex-col gap-1">
@@ -58,7 +58,7 @@ function SignupPage() {
 						required
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
-						className="border border-hairline bg-paper px-3 py-2 text-[15px] outline-none focus:border-accent"
+						className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent"
 					/>
 				</label>
 				<label className="flex flex-col gap-1">
@@ -69,7 +69,7 @@ function SignupPage() {
 						minLength={8}
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
-						className="border border-hairline bg-paper px-3 py-2 text-[15px] outline-none focus:border-accent"
+						className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent"
 					/>
 				</label>
 				{error ? <p className="text-xs text-ink-muted">{error}</p> : null}
