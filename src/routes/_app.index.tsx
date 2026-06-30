@@ -46,7 +46,7 @@ function MainView() {
 
 	return (
 		<div className="mx-auto flex max-w-6xl gap-10 px-6 py-6 max-[959px]:flex-col">
-			<aside className="min-[960px]:sticky min-[960px]:top-6 min-[960px]:h-fit min-[960px]:w-[180px] min-[960px]:shrink-0">
+			<aside className="min-[960px]:sticky min-[960px]:top-6 min-[960px]:max-h-[calc(100vh-3rem)] min-[960px]:w-[180px] min-[960px]:shrink-0 min-[960px]:overflow-y-auto">
 				<nav
 					aria-label="Tags"
 					className="flex gap-1 max-[959px]:overflow-x-auto min-[960px]:flex-col"
