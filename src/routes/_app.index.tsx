@@ -155,7 +155,7 @@ function RailItem({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`flex items-baseline justify-between gap-2 whitespace-nowrap px-2 py-1.5 text-left text-[13px] [@media(hover:none)]:py-2 ${
+			className={`flex items-baseline justify-between gap-2 whitespace-nowrap px-2 py-1.5 text-left text-[13px] pointer-coarse:py-2 ${
 				active
 					? "bg-surface font-medium text-ink"
 					: "text-ink-secondary hover:text-ink"
