@@ -1,6 +1,7 @@
 services:
   bookm:
     build: .
+    restart: unless-stopped
     ports:
       # Host port to publish on; the app listens on 3000 inside the container.
       - "${PORT:-3000}:3000"
