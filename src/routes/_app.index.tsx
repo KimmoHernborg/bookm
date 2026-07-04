@@ -8,6 +8,7 @@ import {
 	getBookmarksPage,
 	getUserTags,
 } from "#/lib/server/functions/bookmarks.ts";
+import { getUserCategories } from "#/lib/server/functions/categories.ts";
 
 export const Route = createFileRoute("/_app/")({ component: MainView });
 
@@ -40,6 +41,10 @@ function MainView() {
 	const { data: userTags } = useQuery({
 		queryKey: ["user-tags"],
 		queryFn: () => getUserTags(),
+	});
+	const { data: userCategories } = useQuery({
+		queryKey: ["user-categories"],
+		queryFn: () => getUserCategories(),
 	});
 
 	const hasAnything =
@@ -139,6 +144,7 @@ function MainView() {
 							groups={data.groups}
 							view="active"
 							tagSuggestions={userTags ?? []}
+							categories={userCategories ?? []}
 						/>
 					) : hasAnything ? (
 						<p className="text-[13px] text-ink-muted">No bookmarks match.</p>

@@ -351,18 +351,40 @@ export const deleteBookmark = createServerFn({ method: "POST" })
 	});
 
 export const updateBookmark = createServerFn({ method: "POST" })
-	.inputValidator((data: { id: number; title: string; tags: Array<string> }) =>
-		z
-			.object({
-				id: z.number().int(),
-				title: z.string().trim().max(500),
-				tags: z.array(z.string()).max(30),
-			})
-			.parse(data),
+	.inputValidator(
+		(data: {
+			id: number;
+			title: string;
+			tags: Array<string>;
+			categoryId: number | null;
+		}) =>
+			z
+				.object({
+					id: z.number().int(),
+					title: z.string().trim().max(500),
+					tags: z.array(z.string()).max(30),
+					categoryId: z.number().int().nullable(),
+				})
+				.parse(data),
 	)
 	.handler(async ({ data }) => {
 		const user = await requireUser();
 		await ownedBookmark(user.id, data.id);
+		// App-level tenant guard: the category FK is single-column by design
+		// (see schema.ts), so cross-user assignment must be rejected here.
+		if (data.categoryId !== null) {
+			const [owned] = db
+				.select({ id: categories.id })
+				.from(categories)
+				.where(
+					and(
+						eq(categories.id, data.categoryId),
+						eq(categories.userId, user.id),
+					),
+				)
+				.all();
+			if (!owned) throw new Error("Category not found");
+		}
 		const tagIds = resolveTagIds(user.id, data.tags);
 		db.transaction((tx) => {
 			tx.delete(bookmarkTags).where(eq(bookmarkTags.bookmarkId, data.id)).run();
@@ -378,7 +400,11 @@ export const updateBookmark = createServerFn({ method: "POST" })
 					.run();
 			}
 			tx.update(bookmarks)
-				.set({ title: data.title || null, updatedAt: new Date() })
+				.set({
+					title: data.title || null,
+					categoryId: data.categoryId,
+					updatedAt: new Date(),
+				})
 				.where(eq(bookmarks.id, data.id))
 				.run();
 		});

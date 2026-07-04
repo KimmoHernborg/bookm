@@ -5,10 +5,12 @@ export function BookmarkGroups({
 	groups,
 	view,
 	tagSuggestions,
+	categories,
 }: {
 	groups: Array<BookmarkGroup>;
 	view: "active" | "archived";
 	tagSuggestions: Array<string>;
+	categories: Array<{ id: number; name: string }>;
 }) {
 	return (
 		<div className="flex flex-col gap-8">
@@ -25,6 +27,7 @@ export function BookmarkGroups({
 								item={item}
 								view={view}
 								tagSuggestions={tagSuggestions}
+								categories={categories}
 							/>
 						))}
 					</ul>

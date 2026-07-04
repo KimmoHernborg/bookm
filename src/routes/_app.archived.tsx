@@ -7,6 +7,7 @@ import {
 	getBookmarksPage,
 	getUserTags,
 } from "#/lib/server/functions/bookmarks.ts";
+import { getUserCategories } from "#/lib/server/functions/categories.ts";
 
 export const Route = createFileRoute("/_app/archived")({
 	component: ArchivedView,
@@ -22,6 +23,10 @@ function ArchivedView() {
 	const { data: userTags } = useQuery({
 		queryKey: ["user-tags"],
 		queryFn: () => getUserTags(),
+	});
+	const { data: userCategories } = useQuery({
+		queryKey: ["user-categories"],
+		queryFn: () => getUserCategories(),
 	});
 
 	async function onEmptyArchive() {
@@ -50,6 +55,7 @@ function ArchivedView() {
 						groups={data.groups}
 						view="archived"
 						tagSuggestions={userTags ?? []}
+						categories={userCategories ?? []}
 					/>
 				) : (
 					<p className="text-[13px] text-ink-muted">Nothing archived.</p>
