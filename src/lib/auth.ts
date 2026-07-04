@@ -56,6 +56,13 @@ export const auth = betterAuth({
 		},
 	},
 	user: {
+		changeEmail: {
+			enabled: true,
+			// No email infrastructure exists; users are always unverified, so
+			// the change applies immediately. If emailVerified were ever true,
+			// change-email returns 400 "Verification email isn't enabled".
+			updateEmailWithoutVerification: true,
+		},
 		additionalFields: {
 			isAdmin: {
 				type: "boolean",
