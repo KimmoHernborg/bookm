@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { BookmarkGroups } from "#/components/bookmark-groups.tsx";
-import { CONTENT_TYPES, type ContentType } from "#/db/schema.ts";
 import {
 	getBookmarksPage,
 	getUserTags,
@@ -20,7 +19,6 @@ function MainView() {
 	// vice versa; "All bookmarks" clears both.
 	const [category, setCategory] = useState<number | "none" | undefined>();
 	const [tag, setTag] = useState<string | undefined>();
-	const [contentType, setContentType] = useState<ContentType | undefined>();
 	const [date, setDate] = useState<DateFilter | undefined>();
 
 	function pickCategory(next: number | "none" | undefined) {
@@ -37,7 +35,6 @@ function MainView() {
 		q: q || undefined,
 		category,
 		tag,
-		contentType,
 		date,
 	};
 	const { data, isPending } = useQuery({
@@ -65,7 +62,6 @@ function MainView() {
 		q ||
 		category !== undefined ||
 		tag !== undefined ||
-		contentType ||
 		date;
 	const activeFilterName =
 		typeof category === "number"
@@ -133,23 +129,6 @@ function MainView() {
 						aria-label="Search bookmarks"
 						className="w-full max-w-xs border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:text-[13px]"
 					/>
-					<select
-						value={contentType ?? ""}
-						onChange={(e) =>
-							setContentType(
-								(e.target.value || undefined) as ContentType | undefined,
-							)
-						}
-						aria-label="Filter by content type"
-						className="border border-hairline bg-paper px-2 py-1.5 text-[16px] text-ink-secondary outline-none focus:border-accent max-[959px]:flex-1 min-[960px]:text-[13px]"
-					>
-						<option value="">All types</option>
-						{CONTENT_TYPES.map((type) => (
-							<option key={type} value={type}>
-								{type}
-							</option>
-						))}
-					</select>
 					<select
 						value={date ?? ""}
 						onChange={(e) =>

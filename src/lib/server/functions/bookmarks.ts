@@ -7,8 +7,6 @@ import {
 	type BookmarkStatus,
 	bookmarks,
 	bookmarkTags,
-	CONTENT_TYPES,
-	type ContentType,
 	categories,
 	tags,
 } from "#/db/schema.ts";
@@ -24,7 +22,6 @@ export type BookmarkListItem = {
 	title: string | null;
 	summary: string | null;
 	description: string | null;
-	contentType: ContentType | null;
 	status: BookmarkStatus;
 	starred: boolean;
 	domain: string;
@@ -57,7 +54,6 @@ const listInputSchema = z.object({
 	// number = a category id, "none" = only uncategorized
 	category: z.union([z.number().int(), z.literal("none")]).optional(),
 	tag: z.string().optional(),
-	contentType: z.enum(CONTENT_TYPES).optional(),
 	date: z.enum(["today", "week", "month"]).optional(),
 });
 
@@ -97,9 +93,6 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 					eq(bookmarks.userId, user.id),
 					isNull(bookmarks.deletedAt),
 					eq(bookmarks.archived, data.view === "archived"),
-					data.contentType
-						? eq(bookmarks.contentType, data.contentType)
-						: undefined,
 					data.category === "none"
 						? isNull(bookmarks.categoryId)
 						: typeof data.category === "number"
@@ -160,7 +153,6 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 			title: r.bookmark.title,
 			summary: r.bookmark.summary,
 			description: r.bookmark.description,
-			contentType: r.bookmark.contentType,
 			status: r.bookmark.status,
 			starred: r.bookmark.starred,
 			domain: domainOf(r.bookmark.url),
