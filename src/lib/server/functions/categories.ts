@@ -51,7 +51,7 @@ export const getUserCategories = createServerFn({ method: "GET" }).handler(
 			)
 			.where(eq(categories.userId, user.id))
 			.groupBy(categories.id)
-			.orderBy(categories.sortOrder, categories.name)
+			.orderBy(sql`${categories.name} COLLATE NOCASE`)
 			.all();
 	},
 );
@@ -166,7 +166,7 @@ export const getDefaultCategories = createServerFn({ method: "GET" }).handler(
 				sortOrder: defaultCategories.sortOrder,
 			})
 			.from(defaultCategories)
-			.orderBy(defaultCategories.sortOrder, defaultCategories.name)
+			.orderBy(sql`${defaultCategories.name} COLLATE NOCASE`)
 			.all();
 	},
 );

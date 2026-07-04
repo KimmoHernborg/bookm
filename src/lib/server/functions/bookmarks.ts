@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "#/db/index.ts";
@@ -86,7 +86,6 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 			.select({
 				bookmark: bookmarks,
 				categoryName: categories.name,
-				categorySortOrder: categories.sortOrder,
 			})
 			.from(bookmarks)
 			.leftJoin(categories, eq(bookmarks.categoryId, categories.id))
@@ -140,30 +139,26 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 			tagsByBookmark.set(row.bookmarkId, list);
 		}
 
-		type ItemWithSort = { item: BookmarkListItem; categorySortOrder: number };
-		const withSort: Array<ItemWithSort> = filtered.map((r) => ({
-			item: {
-				id: r.bookmark.id,
-				url: r.bookmark.url,
-				title: r.bookmark.title,
-				summary: r.bookmark.summary,
-				description: r.bookmark.description,
-				contentType: r.bookmark.contentType,
-				status: r.bookmark.status,
-				starred: r.bookmark.starred,
-				domain: domainOf(r.bookmark.url),
-				createdAt: r.bookmark.createdAt.getTime(),
-				tags: (tagsByBookmark.get(r.bookmark.id) ?? []).sort(),
-				categoryId: r.bookmark.categoryId,
-				category: r.categoryName,
-			},
-			categorySortOrder: r.categorySortOrder ?? 0,
+		const items: Array<BookmarkListItem> = filtered.map((r) => ({
+			id: r.bookmark.id,
+			url: r.bookmark.url,
+			title: r.bookmark.title,
+			summary: r.bookmark.summary,
+			description: r.bookmark.description,
+			contentType: r.bookmark.contentType,
+			status: r.bookmark.status,
+			starred: r.bookmark.starred,
+			domain: domainOf(r.bookmark.url),
+			createdAt: r.bookmark.createdAt.getTime(),
+			tags: (tagsByBookmark.get(r.bookmark.id) ?? []).sort(),
+			categoryId: r.bookmark.categoryId,
+			category: r.categoryName,
 		}));
 
 		// Each bookmark appears exactly once, under its category group.
-		const byCategory = new Map<number, BookmarkGroup & { sort: number }>();
+		const byCategory = new Map<number, BookmarkGroup>();
 		const uncategorized: Array<BookmarkListItem> = [];
-		for (const { item, categorySortOrder } of withSort) {
+		for (const item of items) {
 			if (item.categoryId === null) {
 				uncategorized.push(item);
 			} else {
@@ -171,23 +166,18 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 					categoryId: item.categoryId,
 					category: item.category,
 					bookmarks: [],
-					sort: categorySortOrder,
 				};
 				group.bookmarks.push(item);
 				byCategory.set(item.categoryId, group);
 			}
 		}
 
-		const groups: Array<BookmarkGroup> = [...byCategory.values()]
-			.sort(
-				(a, b) =>
-					a.sort - b.sort || (a.category ?? "").localeCompare(b.category ?? ""),
-			)
-			.map(({ categoryId, category, bookmarks: list }) => ({
-				categoryId,
-				category,
-				bookmarks: list,
-			}));
+		// Groups sort alphabetically, matching the rail's COLLATE NOCASE order.
+		const groups: Array<BookmarkGroup> = [...byCategory.values()].sort((a, b) =>
+			(a.category ?? "").localeCompare(b.category ?? "", undefined, {
+				sensitivity: "base",
+			}),
+		);
 		for (const group of groups) sortGroup(group.bookmarks);
 		sortGroup(uncategorized);
 		// The Uncategorized group sits at the bottom.
@@ -221,7 +211,7 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 						)
 						.where(eq(categories.userId, user.id))
 						.groupBy(categories.id)
-						.orderBy(categories.sortOrder, categories.name)
+						.orderBy(sql`${categories.name} COLLATE NOCASE`)
 						.all()
 				: [];
 
@@ -249,7 +239,7 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 				count: r.value,
 			})),
 			uncategorizedCount: uncategorizedActive?.value ?? 0,
-			total: withSort.length,
+			total: items.length,
 		};
 	});
 
