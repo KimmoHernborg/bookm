@@ -102,6 +102,7 @@ function CategoriesSection() {
 		queryFn: () => getUserCategories(),
 	});
 	const [backfillResult, setBackfillResult] = useState<number | null>(null);
+	const [backfillError, setBackfillError] = useState<string | null>(null);
 	const [backfillBusy, setBackfillBusy] = useState(false);
 
 	function refresh() {
@@ -112,9 +113,15 @@ function CategoriesSection() {
 
 	async function onBackfill() {
 		setBackfillBusy(true);
+		setBackfillError(null);
 		try {
 			const result = await backfillCategories();
 			setBackfillResult(result.enqueued);
+		} catch (err) {
+			setBackfillResult(null);
+			setBackfillError(
+				err instanceof Error ? err.message : "Something went wrong",
+			);
 		} finally {
 			setBackfillBusy(false);
 		}
@@ -163,7 +170,11 @@ function CategoriesSection() {
 				>
 					Categorize existing bookmarks with AI
 				</button>
-				{backfillResult !== null ? (
+				{backfillError !== null ? (
+					<span role="alert" className="text-xs text-ink-muted">
+						{backfillError}
+					</span>
+				) : backfillResult !== null ? (
 					<span className="text-xs text-ink-muted">
 						{backfillResult === 0
 							? "Nothing to categorize."
