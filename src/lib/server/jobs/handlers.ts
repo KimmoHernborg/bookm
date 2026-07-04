@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { db } from "#/db/index.ts";
 import {
@@ -145,7 +145,9 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 	});
 
 	// Only fill an empty category — a re-run (admin Retry) must never
-	// clobber a manual assignment.
+	// clobber a manual assignment. The write below re-checks with an
+	// isNull guard: this read predates the LLM call, and the user may have
+	// assigned a category manually in the meantime.
 	const matched =
 		bookmark.categoryId === null
 			? matchCategory(output.category, userCategories)
@@ -175,13 +177,18 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 				contentType: output.content_type,
 				language: output.language,
 				readingTimeMinutes: output.reading_time_minutes,
-				...(matched ? { categoryId: matched.id } : {}),
 				status: "processed",
 				processedAt: new Date(),
 				updatedAt: new Date(),
 			})
 			.where(eq(bookmarks.id, bookmark.id))
 			.run();
+		if (matched) {
+			tx.update(bookmarks)
+				.set({ categoryId: matched.id })
+				.where(and(eq(bookmarks.id, bookmark.id), isNull(bookmarks.categoryId)))
+				.run();
+		}
 	});
 	syncBookmarkFts(bookmark.id);
 	log.info("bookmark_processed", { bookmarkId: bookmark.id, model });
@@ -220,9 +227,11 @@ async function categorizeBookmark(payload: { bookmarkId: number }) {
 	const matched = matchCategory(picked, userCategories);
 	if (!matched) return;
 
+	// isNull guard: the categoryId check above predates the LLM call, and
+	// the user may have assigned a category manually in the meantime.
 	db.update(bookmarks)
 		.set({ categoryId: matched.id, updatedAt: new Date() })
-		.where(eq(bookmarks.id, bookmark.id))
+		.where(and(eq(bookmarks.id, bookmark.id), isNull(bookmarks.categoryId)))
 		.run();
 	log.info("bookmark_categorized", {
 		bookmarkId: bookmark.id,
