@@ -144,13 +144,6 @@ export function BookmarkRow({
 				<span className="hidden shrink-0 text-xs text-ink-secondary min-[480px]:inline">
 					{item.domain}
 				</span>
-				{item.tags.length > 0 ? (
-					// Same reveal recipe as ActionButton: hover/focus on desktop,
-					// always visible on touch (keyboard equivalence via focus-within).
-					<span className="hidden max-w-48 shrink-0 truncate text-xs text-ink-muted opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 min-[480px]:inline [@media(hover:none)]:opacity-100">
-						{item.tags.join(" · ")}
-					</span>
-				) : null}
 				{statusLabel ? (
 					<span className="shrink-0 text-xs text-ink-muted">{statusLabel}</span>
 				) : null}
@@ -216,6 +209,13 @@ export function BookmarkRow({
 						<Pencil className="h-3.5 w-3.5" />
 					</ActionButton>
 				</span>
+			</div>
+			<div>
+				{item.tags.length > 0 ? (
+					<span className=" text-xs text-ink-muted">
+						{item.tags.join(" · ")}
+					</span>
+				) : null}
 			</div>
 			{editing ? (
 				<form
