@@ -42,8 +42,7 @@ const responseJsonSchema = {
 	properties: {
 		title: {
 			type: "string",
-			description:
-				"Cleaned-up page title: with the site-name suffix first, followed by a dash, then the main title",
+			description: "Cleaned-up page title with site-name suffix stripped",
 		},
 		summary: { type: "string", description: "One sentence" },
 		description: {
@@ -109,7 +108,7 @@ Reuse these tags wherever they fit. Only invent a new tag when none of the exist
 			: "The user has no tags yet; choose precise, reusable tags.";
 	const categoryList = categoryInstructions(existingCategories);
 	return `You are a librarian cataloguing a bookmark for later retrieval.
-Given a web page, produce a cleaned-up title (put the site-name suffix first with a dash, then the main title), a one-sentence summary, a 2-4 sentence description of what is in the page, 3-7 lowercase topic tags, the single best-fitting category, the content type, the page language (ISO 639-1), and an estimated reading time in minutes (null for videos/tools where it does not apply).
+Given a web page, produce a cleaned-up title (strip the site-name suffix), a one-sentence summary, a 2-4 sentence description of what is in the page, 3-7 lowercase topic tags, the single best-fitting category, the content type, the page language (ISO 639-1), and an estimated reading time in minutes (null for videos/tools where it does not apply).
 
 ${tagList}
 
