@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, count, desc, eq, inArray, isNull, notExists } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "#/db/index.ts";
@@ -9,6 +9,7 @@ import {
 	bookmarkTags,
 	CONTENT_TYPES,
 	type ContentType,
+	categories,
 	tags,
 } from "#/db/schema.ts";
 import { searchBookmarkIds, syncBookmarkFts } from "#/lib/server/fts.ts";
@@ -29,26 +30,30 @@ export type BookmarkListItem = {
 	domain: string;
 	createdAt: number;
 	tags: Array<string>;
+	categoryId: number | null;
+	category: string | null;
 };
 
 export type BookmarkGroup = {
-	tag: string | null; // null = the Untagged group
+	categoryId: number | null; // null = the Uncategorized group
+	category: string | null;
 	bookmarks: Array<BookmarkListItem>;
 };
 
-export type RailTag = { name: string; count: number };
+export type RailCategory = { id: number; name: string; count: number };
 
 export type BookmarksPage = {
 	groups: Array<BookmarkGroup>;
-	railTags: Array<RailTag>;
-	untaggedCount: number;
+	railCategories: Array<RailCategory>;
+	uncategorizedCount: number;
 	total: number;
 };
 
 const listInputSchema = z.object({
 	view: z.enum(["active", "archived"]).default("active"),
 	q: z.string().optional(),
-	tag: z.string().optional(),
+	// number = a category id, "none" = only uncategorized
+	category: z.union([z.number().int(), z.literal("none")]).optional(),
 	contentType: z.enum(CONTENT_TYPES).optional(),
 	date: z.enum(["today", "week", "month"]).optional(),
 });
@@ -78,8 +83,13 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 		const user = await requireUser();
 
 		const rows = db
-			.select()
+			.select({
+				bookmark: bookmarks,
+				categoryName: categories.name,
+				categorySortOrder: categories.sortOrder,
+			})
 			.from(bookmarks)
+			.leftJoin(categories, eq(bookmarks.categoryId, categories.id))
 			.where(
 				and(
 					eq(bookmarks.userId, user.id),
@@ -88,6 +98,11 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 					data.contentType
 						? eq(bookmarks.contentType, data.contentType)
 						: undefined,
+					data.category === "none"
+						? isNull(bookmarks.categoryId)
+						: typeof data.category === "number"
+							? eq(bookmarks.categoryId, data.category)
+							: undefined,
 				),
 			)
 			.orderBy(desc(bookmarks.createdAt))
@@ -96,14 +111,16 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 		let filtered = rows;
 		if (data.date) {
 			const cutoff = dateCutoff(data.date).getTime();
-			filtered = filtered.filter((b) => b.createdAt.getTime() >= cutoff);
+			filtered = filtered.filter(
+				(r) => r.bookmark.createdAt.getTime() >= cutoff,
+			);
 		}
 		if (data.q?.trim()) {
 			const matches = searchBookmarkIds(user.id, data.q);
-			filtered = filtered.filter((b) => matches.has(b.id));
+			filtered = filtered.filter((r) => matches.has(r.bookmark.id));
 		}
 
-		const ids = filtered.map((b) => b.id);
+		const ids = filtered.map((r) => r.bookmark.id);
 		const tagRows =
 			ids.length > 0
 				? db
@@ -123,66 +140,88 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 			tagsByBookmark.set(row.bookmarkId, list);
 		}
 
-		const items: Array<BookmarkListItem> = filtered.map((b) => ({
-			id: b.id,
-			url: b.url,
-			title: b.title,
-			summary: b.summary,
-			description: b.description,
-			contentType: b.contentType,
-			status: b.status,
-			starred: b.starred,
-			domain: domainOf(b.url),
-			createdAt: b.createdAt.getTime(),
-			tags: (tagsByBookmark.get(b.id) ?? []).sort(),
+		type ItemWithSort = { item: BookmarkListItem; categorySortOrder: number };
+		const withSort: Array<ItemWithSort> = filtered.map((r) => ({
+			item: {
+				id: r.bookmark.id,
+				url: r.bookmark.url,
+				title: r.bookmark.title,
+				summary: r.bookmark.summary,
+				description: r.bookmark.description,
+				contentType: r.bookmark.contentType,
+				status: r.bookmark.status,
+				starred: r.bookmark.starred,
+				domain: domainOf(r.bookmark.url),
+				createdAt: r.bookmark.createdAt.getTime(),
+				tags: (tagsByBookmark.get(r.bookmark.id) ?? []).sort(),
+				categoryId: r.bookmark.categoryId,
+				category: r.categoryName,
+			},
+			categorySortOrder: r.categorySortOrder ?? 0,
 		}));
 
-		// A bookmark with multiple tags appears under each of its tag groups.
-		const byTag = new Map<string, Array<BookmarkListItem>>();
-		const untagged: Array<BookmarkListItem> = [];
-		for (const item of items) {
-			if (item.tags.length === 0) {
-				untagged.push(item);
+		// Each bookmark appears exactly once, under its category group.
+		const byCategory = new Map<number, BookmarkGroup & { sort: number }>();
+		const uncategorized: Array<BookmarkListItem> = [];
+		for (const { item, categorySortOrder } of withSort) {
+			if (item.categoryId === null) {
+				uncategorized.push(item);
 			} else {
-				for (const tag of item.tags) {
-					const list = byTag.get(tag) ?? [];
-					list.push(item);
-					byTag.set(tag, list);
-				}
+				const group = byCategory.get(item.categoryId) ?? {
+					categoryId: item.categoryId,
+					category: item.category,
+					bookmarks: [],
+					sort: categorySortOrder,
+				};
+				group.bookmarks.push(item);
+				byCategory.set(item.categoryId, group);
 			}
 		}
 
-		let groups: Array<BookmarkGroup> = [...byTag.entries()]
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([tag, list]) => ({ tag, bookmarks: list }));
-		if (data.tag) {
-			groups = groups.filter((g) => g.tag === data.tag);
-		}
+		const groups: Array<BookmarkGroup> = [...byCategory.values()]
+			.sort(
+				(a, b) =>
+					a.sort - b.sort || (a.category ?? "").localeCompare(b.category ?? ""),
+			)
+			.map(({ categoryId, category, bookmarks: list }) => ({
+				categoryId,
+				category,
+				bookmarks: list,
+			}));
 		for (const group of groups) sortGroup(group.bookmarks);
-		sortGroup(untagged);
-		// The Untagged group sits at the bottom; hidden when a tag filter is active.
-		if (!data.tag && untagged.length > 0) {
-			groups.push({ tag: null, bookmarks: untagged });
+		sortGroup(uncategorized);
+		// The Uncategorized group sits at the bottom.
+		if (uncategorized.length > 0) {
+			groups.push({
+				categoryId: null,
+				category: null,
+				bookmarks: uncategorized,
+			});
 		}
 
-		// Rail counts always reflect the unfiltered active view.
+		// Rail counts always reflect the unfiltered active view. LEFT JOIN so
+		// empty categories still show (curated list; the AI can pick them).
 		const railRows = db
-			.select({ name: tags.name, value: count(bookmarkTags.bookmarkId) })
-			.from(tags)
-			.innerJoin(bookmarkTags, eq(bookmarkTags.tagId, tags.id))
-			.innerJoin(bookmarks, eq(bookmarks.id, bookmarkTags.bookmarkId))
-			.where(
+			.select({
+				id: categories.id,
+				name: categories.name,
+				value: count(bookmarks.id),
+			})
+			.from(categories)
+			.leftJoin(
+				bookmarks,
 				and(
-					eq(tags.userId, user.id),
+					eq(bookmarks.categoryId, categories.id),
 					isNull(bookmarks.deletedAt),
 					eq(bookmarks.archived, false),
 				),
 			)
-			.groupBy(tags.id)
-			.orderBy(tags.name)
+			.where(eq(categories.userId, user.id))
+			.groupBy(categories.id)
+			.orderBy(categories.sortOrder, categories.name)
 			.all();
 
-		const [untaggedActive] = db
+		const [uncategorizedActive] = db
 			.select({ value: count() })
 			.from(bookmarks)
 			.where(
@@ -190,21 +229,20 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 					eq(bookmarks.userId, user.id),
 					isNull(bookmarks.deletedAt),
 					eq(bookmarks.archived, false),
-					notExists(
-						db
-							.select({ id: bookmarkTags.bookmarkId })
-							.from(bookmarkTags)
-							.where(eq(bookmarkTags.bookmarkId, bookmarks.id)),
-					),
+					isNull(bookmarks.categoryId),
 				),
 			)
 			.all();
 
 		return {
 			groups,
-			railTags: railRows.map((r) => ({ name: r.name, count: r.value })),
-			untaggedCount: untaggedActive?.value ?? 0,
-			total: items.length,
+			railCategories: railRows.map((r) => ({
+				id: r.id,
+				name: r.name,
+				count: r.value,
+			})),
+			uncategorizedCount: uncategorizedActive?.value ?? 0,
+			total: withSort.length,
 		};
 	});
 

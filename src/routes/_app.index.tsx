@@ -15,14 +15,14 @@ type DateFilter = "today" | "week" | "month";
 
 function MainView() {
 	const [q, setQ] = useState("");
-	const [tag, setTag] = useState<string | undefined>();
+	const [category, setCategory] = useState<number | "none" | undefined>();
 	const [contentType, setContentType] = useState<ContentType | undefined>();
 	const [date, setDate] = useState<DateFilter | undefined>();
 
 	const params = {
 		view: "active" as const,
 		q: q || undefined,
-		tag,
+		category,
 		contentType,
 		date,
 	};
@@ -42,33 +42,47 @@ function MainView() {
 		queryFn: () => getUserTags(),
 	});
 
-	const hasAnything = (data?.total ?? 0) > 0 || q || tag || contentType || date;
+	const hasAnything =
+		(data?.total ?? 0) > 0 ||
+		q ||
+		category !== undefined ||
+		contentType ||
+		date;
+	const activeCategoryName =
+		typeof category === "number"
+			? data?.railCategories.find((c) => c.id === category)?.name
+			: category === "none"
+				? "Uncategorized"
+				: undefined;
 
 	return (
 		<div className="mx-auto flex max-w-6xl gap-10 px-4 py-6 max-[959px]:flex-col max-[959px]:gap-6 sm:px-6">
 			<aside className="min-[960px]:sticky min-[960px]:top-6 min-[960px]:max-h-[calc(100vh-3rem)] min-[960px]:w-[180px] min-[960px]:shrink-0 min-[960px]:overflow-y-auto">
 				<nav
-					aria-label="Tags"
+					aria-label="Categories"
 					className="flex gap-1 max-[959px]:overflow-x-auto max-[959px]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.5rem),transparent)] min-[960px]:flex-col"
 				>
 					<RailItem
 						label="All bookmarks"
-						active={tag === undefined}
-						onClick={() => setTag(undefined)}
+						active={category === undefined}
+						onClick={() => setCategory(undefined)}
 					/>
-					{(data?.railTags ?? []).map((railTag) => (
+					{(data?.railCategories ?? []).map((railCategory) => (
 						<RailItem
-							key={railTag.name}
-							label={railTag.name}
-							count={railTag.count}
-							active={tag === railTag.name}
-							onClick={() => setTag(railTag.name)}
+							key={railCategory.id}
+							label={railCategory.name}
+							count={railCategory.count}
+							active={category === railCategory.id}
+							onClick={() => setCategory(railCategory.id)}
 						/>
 					))}
-					{data && data.untaggedCount > 0 ? (
-						<span className="px-2 py-1.5 text-[13px] text-ink-muted">
-							Untagged ({data.untaggedCount})
-						</span>
+					{data && data.uncategorizedCount > 0 ? (
+						<RailItem
+							label="Uncategorized"
+							count={data.uncategorizedCount}
+							active={category === "none"}
+							onClick={() => setCategory("none")}
+						/>
 					) : null}
 				</nav>
 			</aside>
@@ -79,7 +93,9 @@ function MainView() {
 						type="search"
 						value={q}
 						onChange={(e) => setQ(e.target.value)}
-						placeholder={tag ? `Search in ${tag}` : "Search"}
+						placeholder={
+							activeCategoryName ? `Search in ${activeCategoryName}` : "Search"
+						}
 						aria-label="Search bookmarks"
 						className="w-full max-w-xs border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:text-[13px]"
 					/>
