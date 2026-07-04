@@ -5,6 +5,7 @@ import {
 	type Bookmark,
 	bookmarks,
 	bookmarkTags,
+	categories,
 	tags,
 	user,
 } from "#/db/schema.ts";
@@ -13,6 +14,7 @@ import { extractFromUrl } from "#/lib/server/extraction/extract.ts";
 import { syncBookmarkFts } from "#/lib/server/fts.ts";
 import { generateBookmarkMetadata } from "#/lib/server/llm.ts";
 import { log } from "#/lib/server/log.ts";
+import { matchCategory } from "#/lib/shared/category-match.ts";
 import { normalizeTags } from "#/lib/shared/tag-normalize.ts";
 import { enqueueJob, type JobPayload } from "./queue.ts";
 
@@ -77,6 +79,17 @@ async function fetchAndExtract(payload: { bookmarkId: number }) {
 	enqueueJob({ kind: "tag_bookmark", bookmarkId: bookmark.id });
 }
 
+export function userCategoriesFor(
+	userId: string,
+): Array<{ id: number; name: string }> {
+	return db
+		.select({ id: categories.id, name: categories.name })
+		.from(categories)
+		.where(eq(categories.userId, userId))
+		.orderBy(categories.sortOrder, categories.name)
+		.all();
+}
+
 function topTagsFor(userId: string, limit = 50): Array<string> {
 	return db
 		.select({ name: tags.name, uses: count(bookmarkTags.bookmarkId) })
@@ -116,6 +129,7 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 	if (!bookmark) return;
 
 	const { model } = userModel(bookmark.userId);
+	const userCategories = userCategoriesFor(bookmark.userId);
 	const output = await generateBookmarkMetadata({
 		url: bookmark.url,
 		title: bookmark.title,
@@ -123,8 +137,16 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 		extractionQuality: bookmark.extractionQuality ?? "low",
 		contentTypeHint: bookmark.contentType,
 		existingTags: topTagsFor(bookmark.userId),
+		existingCategories: userCategories.map((c) => c.name),
 		model,
 	});
+
+	// Only fill an empty category — a re-run (admin Retry) must never
+	// clobber a manual assignment.
+	const matched =
+		bookmark.categoryId === null
+			? matchCategory(output.category, userCategories)
+			: null;
 
 	// Union with existing tags (folder tags from import, manual edits)
 	// rather than replacing them — also keeps re-runs idempotent.
@@ -150,6 +172,7 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 				contentType: output.content_type,
 				language: output.language,
 				readingTimeMinutes: output.reading_time_minutes,
+				...(matched ? { categoryId: matched.id } : {}),
 				status: "processed",
 				processedAt: new Date(),
 				updatedAt: new Date(),

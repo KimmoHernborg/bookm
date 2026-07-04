@@ -11,6 +11,7 @@ export const llmOutputSchema = z.object({
 	summary: z.string(),
 	description: z.string(),
 	tags: z.array(z.string()).min(1).max(10),
+	category: z.string().nullable(),
 	content_type: z.enum(CONTENT_TYPES),
 	language: z.string(),
 	reading_time_minutes: z.number().nullable(),
@@ -40,6 +41,13 @@ const responseJsonSchema = {
 			maxItems: 10,
 			description: "3-7 tags, prefer the user's existing tags",
 		},
+		category: {
+			// The allowed names vary per user, so they live in the system
+			// prompt rather than as a schema enum.
+			type: ["string", "null"],
+			description:
+				"Exactly one of the user's categories, copied verbatim, or null if none fits",
+		},
 		content_type: { type: "string", enum: [...CONTENT_TYPES] },
 		language: { type: "string", description: "ISO 639-1 code" },
 		reading_time_minutes: { type: ["number", "null"] },
@@ -49,6 +57,7 @@ const responseJsonSchema = {
 		"summary",
 		"description",
 		"tags",
+		"category",
 		"content_type",
 		"language",
 		"reading_time_minutes",
@@ -63,6 +72,7 @@ export type LlmRequest = {
 	extractionQuality: "full" | "low";
 	contentTypeHint: string | null;
 	existingTags: Array<string>;
+	existingCategories: Array<string>;
 	model: string;
 };
 
@@ -78,16 +88,25 @@ function buildPrompt(req: LlmRequest): string {
 	return parts.filter(Boolean).join("\n\n");
 }
 
-function systemPrompt(existingTags: Array<string>): string {
+function systemPrompt(
+	existingTags: Array<string>,
+	existingCategories: Array<string>,
+): string {
 	const tagList =
 		existingTags.length > 0
 			? `The user's existing tags, most used first: ${existingTags.join(", ")}.
 Reuse these tags wherever they fit. Only invent a new tag when none of the existing ones apply.`
 			: "The user has no tags yet; choose precise, reusable tags.";
+	const categoryList =
+		existingCategories.length > 0
+			? `For the category, choose exactly one from this list, copied verbatim: ${existingCategories.join(", ")}. Never invent a new category. Return null only when none of them fits.`
+			: "The user has no categories; return null for the category.";
 	return `You are a librarian cataloguing a bookmark for later retrieval.
-Given a web page, produce a cleaned-up title (strip the site-name suffix), a one-sentence summary, a 2-4 sentence description of what is in the page, 3-7 lowercase topic tags, the content type, the page language (ISO 639-1), and an estimated reading time in minutes (null for videos/tools where it does not apply).
+Given a web page, produce a cleaned-up title (strip the site-name suffix), a one-sentence summary, a 2-4 sentence description of what is in the page, 3-7 lowercase topic tags, the single best-fitting category, the content type, the page language (ISO 639-1), and an estimated reading time in minutes (null for videos/tools where it does not apply).
 
 ${tagList}
+
+${categoryList}
 
 Tags must be short topic words or phrases (e.g. "react", "self-hosting", "machine-learning"), never full sentences.`;
 }
@@ -107,7 +126,10 @@ export async function generateBookmarkMetadata(
 		body: JSON.stringify({
 			model: req.model,
 			messages: [
-				{ role: "system", content: systemPrompt(req.existingTags) },
+				{
+					role: "system",
+					content: systemPrompt(req.existingTags, req.existingCategories),
+				},
 				{ role: "user", content: buildPrompt(req) },
 			],
 			response_format: {
