@@ -201,38 +201,45 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 
 		// Rail counts always reflect the unfiltered active view. LEFT JOIN so
 		// empty categories still show (curated list; the AI can pick them).
-		const railRows = db
-			.select({
-				id: categories.id,
-				name: categories.name,
-				value: count(bookmarks.id),
-			})
-			.from(categories)
-			.leftJoin(
-				bookmarks,
-				and(
-					eq(bookmarks.categoryId, categories.id),
-					isNull(bookmarks.deletedAt),
-					eq(bookmarks.archived, false),
-				),
-			)
-			.where(eq(categories.userId, user.id))
-			.groupBy(categories.id)
-			.orderBy(categories.sortOrder, categories.name)
-			.all();
+		// The archived view has no rail — skip both queries there.
+		const railRows =
+			data.view === "active"
+				? db
+						.select({
+							id: categories.id,
+							name: categories.name,
+							value: count(bookmarks.id),
+						})
+						.from(categories)
+						.leftJoin(
+							bookmarks,
+							and(
+								eq(bookmarks.categoryId, categories.id),
+								isNull(bookmarks.deletedAt),
+								eq(bookmarks.archived, false),
+							),
+						)
+						.where(eq(categories.userId, user.id))
+						.groupBy(categories.id)
+						.orderBy(categories.sortOrder, categories.name)
+						.all()
+				: [];
 
-		const [uncategorizedActive] = db
-			.select({ value: count() })
-			.from(bookmarks)
-			.where(
-				and(
-					eq(bookmarks.userId, user.id),
-					isNull(bookmarks.deletedAt),
-					eq(bookmarks.archived, false),
-					isNull(bookmarks.categoryId),
-				),
-			)
-			.all();
+		const [uncategorizedActive] =
+			data.view === "active"
+				? db
+						.select({ value: count() })
+						.from(bookmarks)
+						.where(
+							and(
+								eq(bookmarks.userId, user.id),
+								isNull(bookmarks.deletedAt),
+								eq(bookmarks.archived, false),
+								isNull(bookmarks.categoryId),
+							),
+						)
+						.all()
+				: [];
 
 		return {
 			groups,
