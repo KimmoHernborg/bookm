@@ -18,6 +18,7 @@ export const getSettings = createServerFn({ method: "GET" }).handler(
 			.where(eq(user.id, sessionUser.id))
 			.all();
 		return {
+			name: sessionUser.name,
 			email: sessionUser.email,
 			openrouterModel: row?.openrouterModel ?? "",
 			serverDefaultModel: env.openrouterDefaultModel,
