@@ -24,13 +24,18 @@ export function CategoryList({
 	const [renamingId, setRenamingId] = useState<number | null>(null);
 	const [renameValue, setRenameValue] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
 
 	async function run(action: () => Promise<void>) {
+		if (busy) return;
+		setBusy(true);
 		setError(null);
 		try {
 			await action();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Something went wrong");
+		} finally {
+			setBusy(false);
 		}
 	}
 
@@ -68,7 +73,8 @@ export function CategoryList({
 												/>
 												<button
 													type="submit"
-													className="text-[13px] font-medium text-accent hover:text-accent-hover"
+													disabled={busy}
+													className="text-[13px] font-medium text-accent hover:text-accent-hover disabled:opacity-60"
 												>
 													Save
 												</button>
@@ -92,22 +98,24 @@ export function CategoryList({
 											<>
 												<button
 													type="button"
+													disabled={busy}
 													onClick={() => {
 														setRenamingId(item.id);
 														setRenameValue(item.name);
 													}}
-													className="text-accent hover:text-accent-hover"
+													className="text-accent hover:text-accent-hover disabled:opacity-60"
 												>
 													Rename
 												</button>
 												<button
 													type="button"
+													disabled={busy}
 													onClick={() => {
 														if (!window.confirm(deleteConfirm(item.name)))
 															return;
 														void run(() => onDelete(item.id));
 													}}
-													className="ml-3 text-ink-secondary hover:text-ink"
+													className="ml-3 text-ink-secondary hover:text-ink disabled:opacity-60"
 												>
 													Delete
 												</button>
@@ -140,7 +148,8 @@ export function CategoryList({
 				/>
 				<button
 					type="submit"
-					className="px-3 py-1.5 text-[13px] font-medium text-accent hover:text-accent-hover"
+					disabled={busy}
+					className="px-3 py-1.5 text-[13px] font-medium text-accent hover:text-accent-hover disabled:opacity-60"
 				>
 					{addLabel}
 				</button>
