@@ -124,7 +124,9 @@ export const categories = sqliteTable(
 		sortOrder: integer("sort_order").notNull().default(0),
 	},
 	(t) => [
-		uniqueIndex("categories_user_name_uq").on(t.userId, t.name),
+		// Case-insensitive, matching the app-level duplicate checks — the DB
+		// must not accept "Design" and "design" for the same user.
+		uniqueIndex("categories_user_name_uq").on(t.userId, sql`lower(${t.name})`),
 		// Composite-FK target, kept for a future (category_id, user_id) FK.
 		uniqueIndex("categories_id_user_uq").on(t.id, t.userId),
 	],
