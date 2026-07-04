@@ -3,11 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { BookmarkGroups } from "#/components/bookmark-groups.tsx";
-import { CONTENT_TYPES, type ContentType } from "#/db/schema.ts";
 import {
 	getBookmarksPage,
 	getUserTags,
 } from "#/lib/server/functions/bookmarks.ts";
+import { getUserCategories } from "#/lib/server/functions/categories.ts";
 
 export const Route = createFileRoute("/_app/")({ component: MainView });
 
@@ -15,15 +15,26 @@ type DateFilter = "today" | "week" | "month";
 
 function MainView() {
 	const [q, setQ] = useState("");
+	// One rail filter at a time: picking a category clears the tag and
+	// vice versa; "All bookmarks" clears both.
+	const [category, setCategory] = useState<number | "none" | undefined>();
 	const [tag, setTag] = useState<string | undefined>();
-	const [contentType, setContentType] = useState<ContentType | undefined>();
 	const [date, setDate] = useState<DateFilter | undefined>();
+
+	function pickCategory(next: number | "none" | undefined) {
+		setCategory(next);
+		setTag(undefined);
+	}
+	function pickTag(next: string) {
+		setTag(next);
+		setCategory(undefined);
+	}
 
 	const params = {
 		view: "active" as const,
 		q: q || undefined,
+		category,
 		tag,
-		contentType,
 		date,
 	};
 	const { data, isPending } = useQuery({
@@ -41,34 +52,67 @@ function MainView() {
 		queryKey: ["user-tags"],
 		queryFn: () => getUserTags(),
 	});
+	const { data: userCategories } = useQuery({
+		queryKey: ["user-categories"],
+		queryFn: () => getUserCategories(),
+	});
 
-	const hasAnything = (data?.total ?? 0) > 0 || q || tag || contentType || date;
+	const hasAnything =
+		(data?.total ?? 0) > 0 ||
+		q ||
+		category !== undefined ||
+		tag !== undefined ||
+		date;
+	const activeFilterName =
+		typeof category === "number"
+			? data?.railCategories.find((c) => c.id === category)?.name
+			: category === "none"
+				? "Uncategorized"
+				: tag;
 
 	return (
 		<div className="mx-auto flex max-w-6xl gap-10 px-4 py-6 max-[959px]:flex-col max-[959px]:gap-6 sm:px-6">
 			<aside className="min-[960px]:sticky min-[960px]:top-6 min-[960px]:max-h-[calc(100vh-3rem)] min-[960px]:w-[180px] min-[960px]:shrink-0 min-[960px]:overflow-y-auto">
 				<nav
-					aria-label="Tags"
+					aria-label="Categories and tags"
 					className="flex gap-1 max-[959px]:overflow-x-auto max-[959px]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.5rem),transparent)] min-[960px]:flex-col"
 				>
 					<RailItem
 						label="All bookmarks"
-						active={tag === undefined}
-						onClick={() => setTag(undefined)}
+						active={category === undefined && tag === undefined}
+						onClick={() => pickCategory(undefined)}
 					/>
-					{(data?.railTags ?? []).map((railTag) => (
+					<RailSectionLabel>Categories</RailSectionLabel>
+					{(data?.railCategories ?? []).map((railCategory) => (
 						<RailItem
-							key={railTag.name}
-							label={railTag.name}
-							count={railTag.count}
-							active={tag === railTag.name}
-							onClick={() => setTag(railTag.name)}
+							key={railCategory.id}
+							label={railCategory.name}
+							count={railCategory.count}
+							active={category === railCategory.id}
+							onClick={() => pickCategory(railCategory.id)}
 						/>
 					))}
-					{data && data.untaggedCount > 0 ? (
-						<span className="px-2 py-1.5 text-[13px] text-ink-muted">
-							Untagged ({data.untaggedCount})
-						</span>
+					{data && data.uncategorizedCount > 0 ? (
+						<RailItem
+							label="Uncategorized"
+							count={data.uncategorizedCount}
+							active={category === "none"}
+							onClick={() => pickCategory("none")}
+						/>
+					) : null}
+					{data && data.railTags.length > 0 ? (
+						<>
+							<RailSectionLabel>Tags</RailSectionLabel>
+							{data.railTags.map((railTag) => (
+								<RailItem
+									key={railTag.name}
+									label={railTag.name}
+									count={railTag.count}
+									active={tag === railTag.name}
+									onClick={() => pickTag(railTag.name)}
+								/>
+							))}
+						</>
 					) : null}
 				</nav>
 			</aside>
@@ -79,27 +123,12 @@ function MainView() {
 						type="search"
 						value={q}
 						onChange={(e) => setQ(e.target.value)}
-						placeholder={tag ? `Search in ${tag}` : "Search"}
+						placeholder={
+							activeFilterName ? `Search in ${activeFilterName}` : "Search"
+						}
 						aria-label="Search bookmarks"
 						className="w-full max-w-xs border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:text-[13px]"
 					/>
-					<select
-						value={contentType ?? ""}
-						onChange={(e) =>
-							setContentType(
-								(e.target.value || undefined) as ContentType | undefined,
-							)
-						}
-						aria-label="Filter by content type"
-						className="border border-hairline bg-paper px-2 py-1.5 text-[16px] text-ink-secondary outline-none focus:border-accent max-[959px]:flex-1 min-[960px]:text-[13px]"
-					>
-						<option value="">All types</option>
-						{CONTENT_TYPES.map((type) => (
-							<option key={type} value={type}>
-								{type}
-							</option>
-						))}
-					</select>
 					<select
 						value={date ?? ""}
 						onChange={(e) =>
@@ -123,6 +152,7 @@ function MainView() {
 							groups={data.groups}
 							view="active"
 							tagSuggestions={userTags ?? []}
+							categories={userCategories ?? []}
 						/>
 					) : hasAnything ? (
 						<p className="text-[13px] text-ink-muted">No bookmarks match.</p>
@@ -137,6 +167,17 @@ function MainView() {
 				</div>
 			</main>
 		</div>
+	);
+}
+
+function RailSectionLabel({ children }: { children: React.ReactNode }) {
+	// Non-interactive divider between the rail's category and tag sections.
+	// Inline in the horizontal scroll strip below 960px, so it needs the
+	// self-centering rather than top margin there.
+	return (
+		<span className="px-2 text-[11px] font-semibold tracking-widest uppercase text-ink-muted max-[959px]:self-center min-[960px]:mt-4 min-[960px]:mb-1">
+			{children}
+		</span>
 	);
 }
 

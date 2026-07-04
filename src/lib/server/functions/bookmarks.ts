@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, count, desc, eq, inArray, isNull, notExists } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "#/db/index.ts";
@@ -7,8 +7,7 @@ import {
 	type BookmarkStatus,
 	bookmarks,
 	bookmarkTags,
-	CONTENT_TYPES,
-	type ContentType,
+	categories,
 	tags,
 } from "#/db/schema.ts";
 import { searchBookmarkIds, syncBookmarkFts } from "#/lib/server/fts.ts";
@@ -23,33 +22,38 @@ export type BookmarkListItem = {
 	title: string | null;
 	summary: string | null;
 	description: string | null;
-	contentType: ContentType | null;
 	status: BookmarkStatus;
 	starred: boolean;
 	domain: string;
 	createdAt: number;
 	tags: Array<string>;
+	categoryId: number | null;
+	category: string | null;
 };
 
 export type BookmarkGroup = {
-	tag: string | null; // null = the Untagged group
+	categoryId: number | null; // null = the Uncategorized group
+	category: string | null;
 	bookmarks: Array<BookmarkListItem>;
 };
 
+export type RailCategory = { id: number; name: string; count: number };
 export type RailTag = { name: string; count: number };
 
 export type BookmarksPage = {
 	groups: Array<BookmarkGroup>;
+	railCategories: Array<RailCategory>;
 	railTags: Array<RailTag>;
-	untaggedCount: number;
+	uncategorizedCount: number;
 	total: number;
 };
 
 const listInputSchema = z.object({
 	view: z.enum(["active", "archived"]).default("active"),
 	q: z.string().optional(),
+	// number = a category id, "none" = only uncategorized
+	category: z.union([z.number().int(), z.literal("none")]).optional(),
 	tag: z.string().optional(),
-	contentType: z.enum(CONTENT_TYPES).optional(),
 	date: z.enum(["today", "week", "month"]).optional(),
 });
 
@@ -78,16 +82,22 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 		const user = await requireUser();
 
 		const rows = db
-			.select()
+			.select({
+				bookmark: bookmarks,
+				categoryName: categories.name,
+			})
 			.from(bookmarks)
+			.leftJoin(categories, eq(bookmarks.categoryId, categories.id))
 			.where(
 				and(
 					eq(bookmarks.userId, user.id),
 					isNull(bookmarks.deletedAt),
 					eq(bookmarks.archived, data.view === "archived"),
-					data.contentType
-						? eq(bookmarks.contentType, data.contentType)
-						: undefined,
+					data.category === "none"
+						? isNull(bookmarks.categoryId)
+						: typeof data.category === "number"
+							? eq(bookmarks.categoryId, data.category)
+							: undefined,
 				),
 			)
 			.orderBy(desc(bookmarks.createdAt))
@@ -96,14 +106,28 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 		let filtered = rows;
 		if (data.date) {
 			const cutoff = dateCutoff(data.date).getTime();
-			filtered = filtered.filter((b) => b.createdAt.getTime() >= cutoff);
+			filtered = filtered.filter(
+				(r) => r.bookmark.createdAt.getTime() >= cutoff,
+			);
 		}
 		if (data.q?.trim()) {
 			const matches = searchBookmarkIds(user.id, data.q);
-			filtered = filtered.filter((b) => matches.has(b.id));
+			filtered = filtered.filter((r) => matches.has(r.bookmark.id));
+		}
+		if (data.tag) {
+			const tagged = new Set(
+				db
+					.select({ bookmarkId: bookmarkTags.bookmarkId })
+					.from(bookmarkTags)
+					.innerJoin(tags, eq(bookmarkTags.tagId, tags.id))
+					.where(and(eq(tags.userId, user.id), eq(tags.name, data.tag)))
+					.all()
+					.map((row) => row.bookmarkId),
+			);
+			filtered = filtered.filter((r) => tagged.has(r.bookmark.id));
 		}
 
-		const ids = filtered.map((b) => b.id);
+		const ids = filtered.map((r) => r.bookmark.id);
 		const tagRows =
 			ids.length > 0
 				? db
@@ -123,87 +147,125 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 			tagsByBookmark.set(row.bookmarkId, list);
 		}
 
-		const items: Array<BookmarkListItem> = filtered.map((b) => ({
-			id: b.id,
-			url: b.url,
-			title: b.title,
-			summary: b.summary,
-			description: b.description,
-			contentType: b.contentType,
-			status: b.status,
-			starred: b.starred,
-			domain: domainOf(b.url),
-			createdAt: b.createdAt.getTime(),
-			tags: (tagsByBookmark.get(b.id) ?? []).sort(),
+		const items: Array<BookmarkListItem> = filtered.map((r) => ({
+			id: r.bookmark.id,
+			url: r.bookmark.url,
+			title: r.bookmark.title,
+			summary: r.bookmark.summary,
+			description: r.bookmark.description,
+			status: r.bookmark.status,
+			starred: r.bookmark.starred,
+			domain: domainOf(r.bookmark.url),
+			createdAt: r.bookmark.createdAt.getTime(),
+			tags: (tagsByBookmark.get(r.bookmark.id) ?? []).sort(),
+			categoryId: r.bookmark.categoryId,
+			category: r.categoryName,
 		}));
 
-		// A bookmark with multiple tags appears under each of its tag groups.
-		const byTag = new Map<string, Array<BookmarkListItem>>();
-		const untagged: Array<BookmarkListItem> = [];
+		// Each bookmark appears exactly once, under its category group.
+		const byCategory = new Map<number, BookmarkGroup>();
+		const uncategorized: Array<BookmarkListItem> = [];
 		for (const item of items) {
-			if (item.tags.length === 0) {
-				untagged.push(item);
+			if (item.categoryId === null) {
+				uncategorized.push(item);
 			} else {
-				for (const tag of item.tags) {
-					const list = byTag.get(tag) ?? [];
-					list.push(item);
-					byTag.set(tag, list);
-				}
+				const group = byCategory.get(item.categoryId) ?? {
+					categoryId: item.categoryId,
+					category: item.category,
+					bookmarks: [],
+				};
+				group.bookmarks.push(item);
+				byCategory.set(item.categoryId, group);
 			}
 		}
 
-		let groups: Array<BookmarkGroup> = [...byTag.entries()]
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([tag, list]) => ({ tag, bookmarks: list }));
-		if (data.tag) {
-			groups = groups.filter((g) => g.tag === data.tag);
-		}
+		// Groups sort alphabetically, matching the rail's COLLATE NOCASE order.
+		const groups: Array<BookmarkGroup> = [...byCategory.values()].sort((a, b) =>
+			(a.category ?? "").localeCompare(b.category ?? "", undefined, {
+				sensitivity: "base",
+			}),
+		);
 		for (const group of groups) sortGroup(group.bookmarks);
-		sortGroup(untagged);
-		// The Untagged group sits at the bottom; hidden when a tag filter is active.
-		if (!data.tag && untagged.length > 0) {
-			groups.push({ tag: null, bookmarks: untagged });
+		sortGroup(uncategorized);
+		// The Uncategorized group sits at the bottom.
+		if (uncategorized.length > 0) {
+			groups.push({
+				categoryId: null,
+				category: null,
+				bookmarks: uncategorized,
+			});
 		}
 
-		// Rail counts always reflect the unfiltered active view.
-		const railRows = db
-			.select({ name: tags.name, value: count(bookmarkTags.bookmarkId) })
-			.from(tags)
-			.innerJoin(bookmarkTags, eq(bookmarkTags.tagId, tags.id))
-			.innerJoin(bookmarks, eq(bookmarks.id, bookmarkTags.bookmarkId))
-			.where(
-				and(
-					eq(tags.userId, user.id),
-					isNull(bookmarks.deletedAt),
-					eq(bookmarks.archived, false),
-				),
-			)
-			.groupBy(tags.id)
-			.orderBy(tags.name)
-			.all();
+		// Rail counts always reflect the unfiltered active view. LEFT JOIN so
+		// empty categories still show (curated list; the AI can pick them).
+		// The archived view has no rail — skip both queries there.
+		const railRows =
+			data.view === "active"
+				? db
+						.select({
+							id: categories.id,
+							name: categories.name,
+							value: count(bookmarks.id),
+						})
+						.from(categories)
+						.leftJoin(
+							bookmarks,
+							and(
+								eq(bookmarks.categoryId, categories.id),
+								isNull(bookmarks.deletedAt),
+								eq(bookmarks.archived, false),
+							),
+						)
+						.where(eq(categories.userId, user.id))
+						.groupBy(categories.id)
+						.orderBy(sql`${categories.name} COLLATE NOCASE`)
+						.all()
+				: [];
 
-		const [untaggedActive] = db
-			.select({ value: count() })
-			.from(bookmarks)
-			.where(
-				and(
-					eq(bookmarks.userId, user.id),
-					isNull(bookmarks.deletedAt),
-					eq(bookmarks.archived, false),
-					notExists(
-						db
-							.select({ id: bookmarkTags.bookmarkId })
-							.from(bookmarkTags)
-							.where(eq(bookmarkTags.bookmarkId, bookmarks.id)),
-					),
-				),
-			)
-			.all();
+		const railTagRows =
+			data.view === "active"
+				? db
+						.select({ name: tags.name, value: count(bookmarkTags.bookmarkId) })
+						.from(tags)
+						.innerJoin(bookmarkTags, eq(bookmarkTags.tagId, tags.id))
+						.innerJoin(bookmarks, eq(bookmarks.id, bookmarkTags.bookmarkId))
+						.where(
+							and(
+								eq(tags.userId, user.id),
+								isNull(bookmarks.deletedAt),
+								eq(bookmarks.archived, false),
+							),
+						)
+						.groupBy(tags.id)
+						.orderBy(sql`${tags.name} COLLATE NOCASE`)
+						.all()
+				: [];
+
+		const [uncategorizedActive] =
+			data.view === "active"
+				? db
+						.select({ value: count() })
+						.from(bookmarks)
+						.where(
+							and(
+								eq(bookmarks.userId, user.id),
+								isNull(bookmarks.deletedAt),
+								eq(bookmarks.archived, false),
+								isNull(bookmarks.categoryId),
+							),
+						)
+						.all()
+				: [];
 
 		return {
 			groups,
-			railTags: railRows.map((r) => ({ name: r.name, count: r.value })),
-			untaggedCount: untaggedActive?.value ?? 0,
+			railCategories: railRows.map((r) => ({
+				id: r.id,
+				name: r.name,
+				count: r.value,
+			})),
+			railTags: railTagRows.map((r) => ({ name: r.name, count: r.value })),
+			uncategorizedCount: uncategorizedActive?.value ?? 0,
 			total: items.length,
 		};
 	});
@@ -313,18 +375,72 @@ export const deleteBookmark = createServerFn({ method: "POST" })
 	});
 
 export const updateBookmark = createServerFn({ method: "POST" })
-	.inputValidator((data: { id: number; title: string; tags: Array<string> }) =>
-		z
-			.object({
-				id: z.number().int(),
-				title: z.string().trim().max(500),
-				tags: z.array(z.string()).max(30),
-			})
-			.parse(data),
+	.inputValidator(
+		(data: {
+			id: number;
+			url: string;
+			title: string;
+			tags: Array<string>;
+			categoryId: number | null;
+		}) =>
+			z
+				.object({
+					id: z.number().int(),
+					url: z.string().trim().min(1).max(2048),
+					title: z.string().trim().max(500),
+					tags: z.array(z.string()).max(30),
+					categoryId: z.number().int().nullable(),
+				})
+				.parse(data),
 	)
 	.handler(async ({ data }) => {
 		const user = await requireUser();
-		await ownedBookmark(user.id, data.id);
+		const bookmark = await ownedBookmark(user.id, data.id);
+		// App-level tenant guard: the category FK is single-column by design
+		// (see schema.ts), so cross-user assignment must be rejected here.
+		if (data.categoryId !== null) {
+			const [owned] = db
+				.select({ id: categories.id })
+				.from(categories)
+				.where(
+					and(
+						eq(categories.id, data.categoryId),
+						eq(categories.userId, user.id),
+					),
+				)
+				.all();
+			if (!owned) throw new Error("Category not found");
+		}
+
+		// Same URL handling as addBookmark: default scheme, then canonicalize.
+		const rawUrl = /^https?:\/\//i.test(data.url)
+			? data.url
+			: `https://${data.url}`;
+		if (!isHttpUrl(rawUrl)) throw new Error("Invalid URL");
+		const urlCanonical = canonicalizeUrl(rawUrl);
+		const urlChanged = urlCanonical !== bookmark.urlCanonical;
+		if (urlChanged) {
+			// The (userId, urlCanonical) unique index also covers soft-deleted
+			// rows — surface a friendly error instead of a constraint failure.
+			const [conflict] = db
+				.select({ id: bookmarks.id, deletedAt: bookmarks.deletedAt })
+				.from(bookmarks)
+				.where(
+					and(
+						eq(bookmarks.userId, user.id),
+						eq(bookmarks.urlCanonical, urlCanonical),
+					),
+				)
+				.all();
+			if (conflict && conflict.id !== data.id) {
+				throw new Error(
+					conflict.deletedAt === null
+						? "You already have a bookmark with this URL"
+						: "A deleted bookmark still uses this URL — re-add it from the save form instead",
+				);
+			}
+		}
+
 		const tagIds = resolveTagIds(user.id, data.tags);
 		db.transaction((tx) => {
 			tx.delete(bookmarkTags).where(eq(bookmarkTags.bookmarkId, data.id)).run();
@@ -340,10 +456,22 @@ export const updateBookmark = createServerFn({ method: "POST" })
 					.run();
 			}
 			tx.update(bookmarks)
-				.set({ title: data.title || null, updatedAt: new Date() })
+				.set({
+					url: rawUrl,
+					urlCanonical,
+					title: data.title || null,
+					categoryId: data.categoryId,
+					// The stored content/summary describe the old page — send the
+					// bookmark back through the pipeline.
+					...(urlChanged ? { status: "pending" as const, content: null } : {}),
+					updatedAt: new Date(),
+				})
 				.where(eq(bookmarks.id, data.id))
 				.run();
 		});
+		if (urlChanged) {
+			enqueueJob({ kind: "fetch_and_extract", bookmarkId: data.id });
+		}
 		syncBookmarkFts(data.id);
 	});
 

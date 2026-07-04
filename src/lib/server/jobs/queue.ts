@@ -14,6 +14,12 @@ export const jobPayloadSchema = z.discriminatedUnion("kind", [
 		kind: z.literal("tag_bookmark"),
 		bookmarkId: z.number().int(),
 	}),
+	// Category-only pass over an already-processed bookmark (backfill);
+	// cheaper than tag_bookmark and never rewrites titles or summaries.
+	z.object({
+		kind: z.literal("categorize_bookmark"),
+		bookmarkId: z.number().int(),
+	}),
 ]);
 
 export type JobPayload = z.infer<typeof jobPayloadSchema>;

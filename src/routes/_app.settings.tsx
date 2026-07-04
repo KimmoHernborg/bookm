@@ -2,6 +2,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import { CategoryList } from "#/components/category-list.tsx";
+import {
+	backfillCategories,
+	createCategory,
+	deleteCategory,
+	getUserCategories,
+	renameCategory,
+} from "#/lib/server/functions/categories.ts";
 import {
 	getSettings,
 	updateSettings,
@@ -81,6 +89,99 @@ function SettingsView() {
 					) : null}
 				</div>
 			</form>
+
+			<CategoriesSection />
 		</main>
+	);
+}
+
+function CategoriesSection() {
+	const queryClient = useQueryClient();
+	const { data: categories } = useQuery({
+		queryKey: ["user-categories"],
+		queryFn: () => getUserCategories(),
+	});
+	const [backfillResult, setBackfillResult] = useState<number | null>(null);
+	const [backfillError, setBackfillError] = useState<string | null>(null);
+	const [backfillBusy, setBackfillBusy] = useState(false);
+
+	function refresh() {
+		void queryClient.invalidateQueries({ queryKey: ["user-categories"] });
+		// Renames and deletes change rail labels, groups, and counts.
+		void queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+	}
+
+	async function onBackfill() {
+		setBackfillBusy(true);
+		setBackfillError(null);
+		try {
+			const result = await backfillCategories();
+			setBackfillResult(result.enqueued);
+		} catch (err) {
+			setBackfillResult(null);
+			setBackfillError(
+				err instanceof Error ? err.message : "Something went wrong",
+			);
+		} finally {
+			setBackfillBusy(false);
+		}
+	}
+
+	return (
+		<section className="mt-12 max-w-md">
+			<h2 className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
+				Categories
+			</h2>
+			<p className="mt-1 mb-2 text-xs text-ink-muted">
+				The AI files each new bookmark into one of these.
+			</p>
+			<CategoryList
+				items={(categories ?? []).map((c) => ({
+					id: c.id,
+					name: c.name,
+					detail:
+						c.bookmarkCount === 1
+							? "1 bookmark"
+							: `${c.bookmarkCount} bookmarks`,
+				}))}
+				onCreate={async (name) => {
+					await createCategory({ data: { name } });
+					refresh();
+				}}
+				onRename={async (id, name) => {
+					await renameCategory({ data: { id, name } });
+					refresh();
+				}}
+				onDelete={async (id) => {
+					await deleteCategory({ data: { id } });
+					refresh();
+				}}
+				deleteConfirm={(name) =>
+					`Delete "${name}"? Its bookmarks become Uncategorized.`
+				}
+				addLabel="Add category"
+			/>
+			<div className="mt-6 flex items-center gap-3">
+				<button
+					type="button"
+					disabled={backfillBusy}
+					onClick={() => void onBackfill()}
+					className="w-fit border border-hairline px-3 py-1.5 text-[13px] text-ink-secondary hover:text-ink disabled:opacity-60"
+				>
+					Categorize existing bookmarks with AI
+				</button>
+				{backfillError !== null ? (
+					<span role="alert" className="text-xs text-ink-muted">
+						{backfillError}
+					</span>
+				) : backfillResult !== null ? (
+					<span className="text-xs text-ink-muted">
+						{backfillResult === 0
+							? "Nothing to categorize."
+							: `Enqueued ${backfillResult} bookmark${backfillResult === 1 ? "" : "s"}.`}
+					</span>
+				) : null}
+			</div>
+		</section>
 	);
 }

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { CategoryList } from "#/components/category-list.tsx";
 import {
 	adminCreateUser,
 	adminRetryJob,
@@ -9,6 +10,12 @@ import {
 	getAdminOverview,
 } from "#/lib/server/functions/admin.ts";
 import { getAuthState } from "#/lib/server/functions/auth-meta.ts";
+import {
+	createDefaultCategory,
+	deleteDefaultCategory,
+	getDefaultCategories,
+	renameDefaultCategory,
+} from "#/lib/server/functions/categories.ts";
 
 export const Route = createFileRoute("/_app/admin")({
 	beforeLoad: async () => {
@@ -38,6 +45,41 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 const cell = "py-1.5 pr-4 text-[13px] align-top";
 const headCell = "py-1.5 pr-4 text-left text-xs font-medium text-ink-secondary";
+
+// Own query, not part of getAdminOverview — that one refetches every 5s.
+function DefaultCategoriesSection() {
+	const queryClient = useQueryClient();
+	const { data: defaults } = useQuery({
+		queryKey: ["default-categories"],
+		queryFn: () => getDefaultCategories(),
+	});
+
+	function refresh() {
+		void queryClient.invalidateQueries({ queryKey: ["default-categories"] });
+	}
+
+	return (
+		<CategoryList
+			items={defaults ?? []}
+			onCreate={async (name) => {
+				await createDefaultCategory({ data: { name } });
+				refresh();
+			}}
+			onRename={async (id, name) => {
+				await renameDefaultCategory({ data: { id, name } });
+				refresh();
+			}}
+			onDelete={async (id) => {
+				await deleteDefaultCategory({ data: { id } });
+				refresh();
+			}}
+			deleteConfirm={(name) =>
+				`Remove "${name}" from the defaults for new accounts?`
+			}
+			addLabel="Add default"
+		/>
+	);
+}
 
 function AdminView() {
 	const queryClient = useQueryClient();
@@ -234,6 +276,14 @@ function AdminView() {
 					<span className="text-xs text-ink-muted">{createError}</span>
 				) : null}
 			</form>
+
+			<SectionHeading>Default categories</SectionHeading>
+			<p className="mt-1 text-[13px] text-ink-secondary">
+				Copied to new accounts at signup; changes don't affect existing users.
+			</p>
+			<div className="mt-2 max-w-md">
+				<DefaultCategoriesSection />
+			</div>
 
 			<SectionHeading>Broken links</SectionHeading>
 			<div className="mt-2 overflow-x-auto border-t border-hairline">

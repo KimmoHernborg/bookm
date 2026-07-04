@@ -29,6 +29,27 @@
       "when": 1781368689003,
       "tag": "0003_next_wild_child",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1783156628735,
+      "tag": "0004_lying_stature",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1783156666491,
+      "tag": "0005_seed_default_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783184218066,
+      "tag": "0006_concerned_gauntlet",
+      "breakpoints": true
     }
   ]
 }

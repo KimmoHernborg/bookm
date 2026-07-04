@@ -60,15 +60,19 @@ export function BookmarkRow({
 	item,
 	view,
 	tagSuggestions,
+	categories,
 }: {
 	item: BookmarkListItem;
 	view: "active" | "archived";
 	tagSuggestions: Array<string>;
+	categories: Array<{ id: number; name: string }>;
 }) {
 	const queryClient = useQueryClient();
 	const [editing, setEditing] = useState(false);
+	const [url, setUrl] = useState(item.url);
 	const [title, setTitle] = useState(item.title ?? "");
 	const [tags, setTags] = useState(item.tags);
+	const [categoryId, setCategoryId] = useState(item.categoryId);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -78,18 +82,24 @@ export function BookmarkRow({
 	function invalidate() {
 		void queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
 		void queryClient.invalidateQueries({ queryKey: ["user-tags"] });
+		void queryClient.invalidateQueries({ queryKey: ["user-categories"] });
 	}
 
 	function startEdit() {
+		setUrl(item.url);
 		setTitle(item.title ?? "");
 		setTags(item.tags);
+		setCategoryId(item.categoryId);
 		setError(null);
 		setEditing(true);
 	}
 
 	function cancelEdit() {
 		const dirty =
-			title !== (item.title ?? "") || tags.join(",") !== item.tags.join(",");
+			url !== item.url ||
+			title !== (item.title ?? "") ||
+			tags.join(",") !== item.tags.join(",") ||
+			categoryId !== item.categoryId;
 		if (dirty && !window.confirm("Discard unsaved changes?")) return;
 		setError(null);
 		setEditing(false);
@@ -100,7 +110,9 @@ export function BookmarkRow({
 		setSaving(true);
 		setError(null);
 		try {
-			await updateBookmark({ data: { id: item.id, title, tags } });
+			await updateBookmark({
+				data: { id: item.id, url, title, tags, categoryId },
+			});
 			setEditing(false);
 			invalidate();
 		} catch (err) {
@@ -204,11 +216,31 @@ export function BookmarkRow({
 					</ActionButton>
 				</span>
 			</div>
+			<div>
+				{item.tags.length > 0 ? (
+					<span className=" text-xs text-ink-muted">
+						{item.tags.join(" · ")}
+					</span>
+				) : null}
+			</div>
 			{editing ? (
 				<form
 					onSubmit={saveEdit}
 					className="mt-2 mb-1 flex flex-col gap-2 border border-hairline bg-paper p-3 shadow-sm"
 				>
+					<label className="flex flex-col gap-1">
+						<span className="text-xs text-ink-secondary">URL</span>
+						<input
+							type="url"
+							required
+							value={url}
+							onChange={(e) => setUrl(e.target.value)}
+							className="border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+						/>
+						<span className="text-xs text-ink-muted">
+							Changing the URL refetches the page and re-runs the AI.
+						</span>
+					</label>
 					<label className="flex flex-col gap-1">
 						<span className="text-xs text-ink-secondary">Title</span>
 						<input
@@ -225,6 +257,25 @@ export function BookmarkRow({
 							suggestions={tagSuggestions}
 						/>
 					</div>
+					<label className="flex flex-col gap-1">
+						<span className="text-xs text-ink-secondary">Category</span>
+						<select
+							value={categoryId === null ? "" : String(categoryId)}
+							onChange={(e) =>
+								setCategoryId(
+									e.target.value === "" ? null : Number(e.target.value),
+								)
+							}
+							className="self-start border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+						>
+							<option value="">Uncategorized</option>
+							{categories.map((c) => (
+								<option key={c.id} value={c.id}>
+									{c.name}
+								</option>
+							))}
+						</select>
+					</label>
 					{error ? (
 						<p role="alert" className="text-[13px] text-ink-muted">
 							{error}
