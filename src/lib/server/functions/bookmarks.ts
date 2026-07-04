@@ -351,6 +351,7 @@ export const updateBookmark = createServerFn({ method: "POST" })
 	.inputValidator(
 		(data: {
 			id: number;
+			url: string;
 			title: string;
 			tags: Array<string>;
 			categoryId: number | null;
@@ -358,6 +359,7 @@ export const updateBookmark = createServerFn({ method: "POST" })
 			z
 				.object({
 					id: z.number().int(),
+					url: z.string().trim().min(1).max(2048),
 					title: z.string().trim().max(500),
 					tags: z.array(z.string()).max(30),
 					categoryId: z.number().int().nullable(),
@@ -366,7 +368,7 @@ export const updateBookmark = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const user = await requireUser();
-		await ownedBookmark(user.id, data.id);
+		const bookmark = await ownedBookmark(user.id, data.id);
 		// App-level tenant guard: the category FK is single-column by design
 		// (see schema.ts), so cross-user assignment must be rejected here.
 		if (data.categoryId !== null) {
@@ -382,6 +384,36 @@ export const updateBookmark = createServerFn({ method: "POST" })
 				.all();
 			if (!owned) throw new Error("Category not found");
 		}
+
+		// Same URL handling as addBookmark: default scheme, then canonicalize.
+		const rawUrl = /^https?:\/\//i.test(data.url)
+			? data.url
+			: `https://${data.url}`;
+		if (!isHttpUrl(rawUrl)) throw new Error("Invalid URL");
+		const urlCanonical = canonicalizeUrl(rawUrl);
+		const urlChanged = urlCanonical !== bookmark.urlCanonical;
+		if (urlChanged) {
+			// The (userId, urlCanonical) unique index also covers soft-deleted
+			// rows — surface a friendly error instead of a constraint failure.
+			const [conflict] = db
+				.select({ id: bookmarks.id, deletedAt: bookmarks.deletedAt })
+				.from(bookmarks)
+				.where(
+					and(
+						eq(bookmarks.userId, user.id),
+						eq(bookmarks.urlCanonical, urlCanonical),
+					),
+				)
+				.all();
+			if (conflict && conflict.id !== data.id) {
+				throw new Error(
+					conflict.deletedAt === null
+						? "You already have a bookmark with this URL"
+						: "A deleted bookmark still uses this URL — re-add it from the save form instead",
+				);
+			}
+		}
+
 		const tagIds = resolveTagIds(user.id, data.tags);
 		db.transaction((tx) => {
 			tx.delete(bookmarkTags).where(eq(bookmarkTags.bookmarkId, data.id)).run();
@@ -398,13 +430,21 @@ export const updateBookmark = createServerFn({ method: "POST" })
 			}
 			tx.update(bookmarks)
 				.set({
+					url: rawUrl,
+					urlCanonical,
 					title: data.title || null,
 					categoryId: data.categoryId,
+					// The stored content/summary describe the old page — send the
+					// bookmark back through the pipeline.
+					...(urlChanged ? { status: "pending" as const, content: null } : {}),
 					updatedAt: new Date(),
 				})
 				.where(eq(bookmarks.id, data.id))
 				.run();
 		});
+		if (urlChanged) {
+			enqueueJob({ kind: "fetch_and_extract", bookmarkId: data.id });
+		}
 		syncBookmarkFts(data.id);
 	});
 
