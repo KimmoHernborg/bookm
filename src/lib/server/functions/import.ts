@@ -48,7 +48,11 @@ export const importNetscape = createServerFn({ method: "POST" })
 
 		// Folder names become tags right away; the LLM adds more later.
 		type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-		function linkFolderTags(tx: Tx, bookmarkId: number, folders: Array<string>) {
+		function linkFolderTags(
+			tx: Tx,
+			bookmarkId: number,
+			folders: Array<string>,
+		) {
 			const tagIds = resolveTagIds(user.id, folders);
 			if (tagIds.length > 0) {
 				tx.insert(bookmarkTags)
