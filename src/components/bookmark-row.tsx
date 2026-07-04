@@ -81,6 +81,7 @@ export function BookmarkRow({
 	function invalidate() {
 		void queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
 		void queryClient.invalidateQueries({ queryKey: ["user-tags"] });
+		void queryClient.invalidateQueries({ queryKey: ["user-categories"] });
 	}
 
 	function startEdit() {
