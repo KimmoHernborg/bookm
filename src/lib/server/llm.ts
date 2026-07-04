@@ -19,6 +19,21 @@ export const llmOutputSchema = z.object({
 
 export type LlmOutput = z.infer<typeof llmOutputSchema>;
 
+// Shared between the full-metadata schema and pickBookmarkCategory so the
+// two cannot drift. The allowed names vary per user, so they live in the
+// prompt (categoryInstructions) rather than as a schema enum.
+const CATEGORY_FIELD_SCHEMA = {
+	type: ["string", "null"],
+	description:
+		"Exactly one of the user's categories, copied verbatim, or null if none fits",
+} as const;
+
+function categoryInstructions(existingCategories: Array<string>): string {
+	return existingCategories.length > 0
+		? `For the category, choose exactly one from this list, copied verbatim: ${existingCategories.join(", ")}. Never invent a new category. Return null only when none of them fits.`
+		: "The user has no categories; return null for the category.";
+}
+
 // Hand-written (rather than derived) so it exactly matches what
 // OpenAI-style strict structured output requires: every property listed in
 // `required`, additionalProperties false.
@@ -42,13 +57,7 @@ const responseJsonSchema = {
 			maxItems: 10,
 			description: "3-7 tags, prefer the user's existing tags",
 		},
-		category: {
-			// The allowed names vary per user, so they live in the system
-			// prompt rather than as a schema enum.
-			type: ["string", "null"],
-			description:
-				"Exactly one of the user's categories, copied verbatim, or null if none fits",
-		},
+		category: CATEGORY_FIELD_SCHEMA,
 		content_type: { type: "string", enum: [...CONTENT_TYPES] },
 		language: { type: "string", description: "ISO 639-1 code" },
 		reading_time_minutes: { type: ["number", "null"] },
@@ -98,10 +107,7 @@ function systemPrompt(
 			? `The user's existing tags, most used first: ${existingTags.join(", ")}.
 Reuse these tags wherever they fit. Only invent a new tag when none of the existing ones apply.`
 			: "The user has no tags yet; choose precise, reusable tags.";
-	const categoryList =
-		existingCategories.length > 0
-			? `For the category, choose exactly one from this list, copied verbatim: ${existingCategories.join(", ")}. Never invent a new category. Return null only when none of them fits.`
-			: "The user has no categories; return null for the category.";
+	const categoryList = categoryInstructions(existingCategories);
 	return `You are a librarian cataloguing a bookmark for later retrieval.
 Given a web page, produce a cleaned-up title (put the site-name suffix first with a dash, then the main title), a one-sentence summary, a 2-4 sentence description of what is in the page, 3-7 lowercase topic tags, the single best-fitting category, the content type, the page language (ISO 639-1), and an estimated reading time in minutes (null for videos/tools where it does not apply).
 
@@ -186,6 +192,9 @@ export async function pickBookmarkCategory(req: {
 	categories: Array<string>;
 	model: string;
 }): Promise<string | null> {
+	// Nothing to file into — skip the LLM call entirely (callers guard this
+	// too, but the function must stay safe on its own).
+	if (req.categories.length === 0) return null;
 	const user = [
 		`URL: ${req.url}`,
 		req.title ? `Title: ${req.title}` : null,
@@ -198,17 +207,13 @@ export async function pickBookmarkCategory(req: {
 	const content = await chatCompletion({
 		model: req.model,
 		system: `You are a librarian filing a bookmark into the single best-fitting category.
-Choose exactly one from this list, copied verbatim: ${req.categories.join(", ")}. Never invent a new category. Return null only when none of them fits.`,
+${categoryInstructions(req.categories)}`,
 		user,
 		schemaName: "bookmark_category",
 		schema: {
 			type: "object",
 			properties: {
-				category: {
-					type: ["string", "null"],
-					description:
-						"Exactly one of the listed categories, copied verbatim, or null",
-				},
+				category: CATEGORY_FIELD_SCHEMA,
 			},
 			required: ["category"],
 			additionalProperties: false,
