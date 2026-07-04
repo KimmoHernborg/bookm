@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { CategoryList } from "#/components/category-list.tsx";
+import { authClient } from "#/lib/auth-client.ts";
 import {
 	backfillCategories,
 	createCategory,
@@ -90,8 +91,227 @@ function SettingsView() {
 				</div>
 			</form>
 
+			<AccountSection />
+
 			<CategoriesSection />
 		</main>
+	);
+}
+
+function AccountSection() {
+	return (
+		<section className="mt-12 max-w-md">
+			<h2 className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
+				Account
+			</h2>
+			<ProfileForm />
+			<PasswordForm />
+		</section>
+	);
+}
+
+function ProfileForm() {
+	const queryClient = useQueryClient();
+	const router = useRouter();
+	const { data } = useQuery({
+		queryKey: ["settings"],
+		queryFn: () => getSettings(),
+	});
+	const [name, setName] = useState("");
+	const [email, setEmail] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const [saved, setSaved] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const initialized = useRef(false);
+
+	useEffect(() => {
+		if (data && !initialized.current) {
+			initialized.current = true;
+			setName(data.name);
+			setEmail(data.email);
+		}
+	}, [data]);
+
+	async function onSubmit(event: React.FormEvent) {
+		event.preventDefault();
+		if (!data) return;
+		setBusy(true);
+		setError(null);
+		try {
+			const newName = name.trim();
+			const newEmail = email.trim().toLowerCase();
+			if (newName === "") {
+				setError("Name is required");
+				return;
+			}
+			if (newName !== data.name) {
+				const result = await authClient.updateUser({ name: newName });
+				if (result.error) {
+					setError(result.error.message ?? "Could not update name");
+					return;
+				}
+			}
+			if (newEmail !== data.email) {
+				const result = await authClient.changeEmail({ newEmail });
+				if (result.error) {
+					setError(result.error.message ?? "Could not update email");
+					return;
+				}
+				// changeEmail reports success without changing anything when the
+				// address belongs to another user (enumeration protection), so
+				// confirm the change actually landed.
+				const session = await authClient.getSession({
+					query: { disableCookieCache: true },
+				});
+				if (session.data?.user.email !== newEmail) {
+					setError("That email is already in use.");
+					return;
+				}
+			}
+			setSaved(true);
+			setTimeout(() => setSaved(false), 2000);
+		} finally {
+			setBusy(false);
+			void queryClient.invalidateQueries({ queryKey: ["settings"] });
+			void router.invalidate();
+		}
+	}
+
+	return (
+		<form onSubmit={onSubmit} className="mt-4 flex flex-col gap-4">
+			<label className="flex flex-col gap-1">
+				<span className="text-xs text-ink-secondary">Name</span>
+				<input
+					required
+					maxLength={100}
+					autoComplete="name"
+					value={name}
+					onChange={(e) => setName(e.target.value)}
+					className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+				/>
+			</label>
+			<label className="flex flex-col gap-1">
+				<span className="text-xs text-ink-secondary">Email</span>
+				<input
+					type="email"
+					required
+					autoComplete="email"
+					value={email}
+					onChange={(e) => setEmail(e.target.value)}
+					className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+				/>
+			</label>
+			{error ? (
+				<p role="alert" className="text-xs text-ink-muted">
+					{error}
+				</p>
+			) : null}
+			<div className="flex items-center gap-3">
+				<button
+					type="submit"
+					disabled={busy}
+					className="w-fit bg-accent px-3 py-1.5 text-[13px] font-medium text-paper hover:bg-accent-hover disabled:opacity-60"
+				>
+					Save
+				</button>
+				{saved ? <span className="text-xs text-ink-muted">Saved.</span> : null}
+			</div>
+		</form>
+	);
+}
+
+function PasswordForm() {
+	const [currentPassword, setCurrentPassword] = useState("");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const [saved, setSaved] = useState(false);
+	const [busy, setBusy] = useState(false);
+
+	async function onSubmit(event: React.FormEvent) {
+		event.preventDefault();
+		if (newPassword !== confirmPassword) {
+			setError("Passwords do not match");
+			return;
+		}
+		setBusy(true);
+		setError(null);
+		try {
+			const result = await authClient.changePassword({
+				currentPassword,
+				newPassword,
+				// Sign out any other devices; this browser gets a fresh session.
+				revokeOtherSessions: true,
+			});
+			if (result.error) {
+				setError(result.error.message ?? "Could not change password");
+				return;
+			}
+			setCurrentPassword("");
+			setNewPassword("");
+			setConfirmPassword("");
+			setSaved(true);
+			setTimeout(() => setSaved(false), 2000);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
+			<label className="flex flex-col gap-1">
+				<span className="text-xs text-ink-secondary">Current password</span>
+				<input
+					type="password"
+					required
+					autoComplete="current-password"
+					value={currentPassword}
+					onChange={(e) => setCurrentPassword(e.target.value)}
+					className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+				/>
+			</label>
+			<label className="flex flex-col gap-1">
+				<span className="text-xs text-ink-secondary">New password</span>
+				<input
+					type="password"
+					required
+					minLength={8}
+					maxLength={128}
+					autoComplete="new-password"
+					value={newPassword}
+					onChange={(e) => setNewPassword(e.target.value)}
+					className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+				/>
+			</label>
+			<label className="flex flex-col gap-1">
+				<span className="text-xs text-ink-secondary">Confirm new password</span>
+				<input
+					type="password"
+					required
+					minLength={8}
+					maxLength={128}
+					autoComplete="new-password"
+					value={confirmPassword}
+					onChange={(e) => setConfirmPassword(e.target.value)}
+					className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+				/>
+			</label>
+			{error ? (
+				<p role="alert" className="text-xs text-ink-muted">
+					{error}
+				</p>
+			) : null}
+			<div className="flex items-center gap-3">
+				<button
+					type="submit"
+					disabled={busy}
+					className="w-fit bg-accent px-3 py-1.5 text-[13px] font-medium text-paper hover:bg-accent-hover disabled:opacity-60"
+				>
+					Change password
+				</button>
+				{saved ? <span className="text-xs text-ink-muted">Saved.</span> : null}
+			</div>
+		</form>
 	);
 }
 
