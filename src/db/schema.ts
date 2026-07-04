@@ -111,6 +111,33 @@ export const BOOKMARK_STATUSES = [
 ] as const;
 export type BookmarkStatus = (typeof BOOKMARK_STATUSES)[number];
 
+// Curated per-user list; the AI picks one per bookmark from this list and
+// never invents new ones (unlike tags). Names keep display casing.
+export const categories = sqliteTable(
+	"categories",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		sortOrder: integer("sort_order").notNull().default(0),
+	},
+	(t) => [
+		uniqueIndex("categories_user_name_uq").on(t.userId, t.name),
+		// Composite-FK target, kept for a future (category_id, user_id) FK.
+		uniqueIndex("categories_id_user_uq").on(t.id, t.userId),
+	],
+);
+
+// Global template copied into a user's categories at signup. Admin-managed;
+// edits do not ripple to existing users.
+export const defaultCategories = sqliteTable("default_categories", {
+	id: integer("id").primaryKey({ autoIncrement: true }),
+	name: text("name").notNull().unique(),
+	sortOrder: integer("sort_order").notNull().default(0),
+});
+
 export const bookmarks = sqliteTable(
 	"bookmarks",
 	{
@@ -132,6 +159,14 @@ export const bookmarks = sqliteTable(
 		// broken = URL unreachable at fetch time (4xx/5xx), distinct from
 		// failed (job error). Set only during fetch_and_extract.
 		status: text("status").$type<BookmarkStatus>().notNull().default("pending"),
+		// Single-column FK by design: a composite (category_id, user_id) FK
+		// cannot use SET NULL (it would null user_id too) and cannot be added
+		// without rebuilding this table, which would cascade-delete
+		// bookmark_tags (see drizzle/0003). Tenant isolation is enforced in
+		// every write path instead.
+		categoryId: integer("category_id").references(() => categories.id, {
+			onDelete: "set null",
+		}),
 		starred: integer("starred", { mode: "boolean" }).notNull().default(false),
 		archived: integer("archived", { mode: "boolean" }).notNull().default(false),
 		deletedAt: integer("deleted_at", { mode: "timestamp" }),
@@ -147,6 +182,7 @@ export const bookmarks = sqliteTable(
 		uniqueIndex("bookmarks_user_url_canonical_uq").on(t.userId, t.urlCanonical),
 		index("bookmarks_user_view_idx").on(t.userId, t.archived, t.deletedAt),
 		index("bookmarks_status_idx").on(t.status),
+		index("bookmarks_category_idx").on(t.categoryId),
 		// Composite-FK target for bookmark_tags (id + user_id together).
 		uniqueIndex("bookmarks_id_user_uq").on(t.id, t.userId),
 	],
@@ -229,5 +265,7 @@ export const jobs = sqliteTable(
 
 export type Bookmark = typeof bookmarks.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
+export type Category = typeof categories.$inferSelect;
+export type DefaultCategory = typeof defaultCategories.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type User = typeof user.$inferSelect;
