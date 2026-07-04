@@ -111,9 +111,13 @@ ${categoryList}
 Tags must be short topic words or phrases (e.g. "react", "self-hosting", "machine-learning"), never full sentences.`;
 }
 
-export async function generateBookmarkMetadata(
-	req: LlmRequest,
-): Promise<LlmOutput> {
+async function chatCompletion(request: {
+	model: string;
+	system: string;
+	user: string;
+	schemaName: string;
+	schema: object;
+}): Promise<string> {
 	if (!env.openrouterApiKey) {
 		throw new Error("OPENROUTER_API_KEY is not set; cannot run tagging");
 	}
@@ -124,20 +128,17 @@ export async function generateBookmarkMetadata(
 			"content-type": "application/json",
 		},
 		body: JSON.stringify({
-			model: req.model,
+			model: request.model,
 			messages: [
-				{
-					role: "system",
-					content: systemPrompt(req.existingTags, req.existingCategories),
-				},
-				{ role: "user", content: buildPrompt(req) },
+				{ role: "system", content: request.system },
+				{ role: "user", content: request.user },
 			],
 			response_format: {
 				type: "json_schema",
 				json_schema: {
-					name: "bookmark_metadata",
+					name: request.schemaName,
 					strict: true,
-					schema: responseJsonSchema,
+					schema: request.schema,
 				},
 			},
 		}),
@@ -156,5 +157,63 @@ export async function generateBookmarkMetadata(
 	if (!content) {
 		throw new Error("LLM response had no content");
 	}
+	return content;
+}
+
+export async function generateBookmarkMetadata(
+	req: LlmRequest,
+): Promise<LlmOutput> {
+	const content = await chatCompletion({
+		model: req.model,
+		system: systemPrompt(req.existingTags, req.existingCategories),
+		user: buildPrompt(req),
+		schemaName: "bookmark_metadata",
+		schema: responseJsonSchema,
+	});
 	return llmOutputSchema.parse(JSON.parse(content));
+}
+
+// Category-only pass for backfilling already-processed bookmarks: runs on
+// stored metadata (no page content), so it is much cheaper than a full
+// generateBookmarkMetadata call and never touches titles or summaries.
+export async function pickBookmarkCategory(req: {
+	url: string;
+	title: string | null;
+	summary: string | null;
+	description: string | null;
+	tags: Array<string>;
+	categories: Array<string>;
+	model: string;
+}): Promise<string | null> {
+	const user = [
+		`URL: ${req.url}`,
+		req.title ? `Title: ${req.title}` : null,
+		req.summary ? `Summary: ${req.summary}` : null,
+		req.description ? `Description: ${req.description}` : null,
+		req.tags.length > 0 ? `Tags: ${req.tags.join(", ")}` : null,
+	]
+		.filter(Boolean)
+		.join("\n");
+	const content = await chatCompletion({
+		model: req.model,
+		system: `You are a librarian filing a bookmark into the single best-fitting category.
+Choose exactly one from this list, copied verbatim: ${req.categories.join(", ")}. Never invent a new category. Return null only when none of them fits.`,
+		user,
+		schemaName: "bookmark_category",
+		schema: {
+			type: "object",
+			properties: {
+				category: {
+					type: ["string", "null"],
+					description:
+						"Exactly one of the listed categories, copied verbatim, or null",
+				},
+			},
+			required: ["category"],
+			additionalProperties: false,
+		},
+	});
+	return z
+		.object({ category: z.string().nullable() })
+		.parse(JSON.parse(content)).category;
 }

@@ -12,7 +12,10 @@ import {
 import { env, extractionMaxCharsFor } from "#/lib/server/env.ts";
 import { extractFromUrl } from "#/lib/server/extraction/extract.ts";
 import { syncBookmarkFts } from "#/lib/server/fts.ts";
-import { generateBookmarkMetadata } from "#/lib/server/llm.ts";
+import {
+	generateBookmarkMetadata,
+	pickBookmarkCategory,
+} from "#/lib/server/llm.ts";
 import { log } from "#/lib/server/log.ts";
 import { matchCategory } from "#/lib/shared/category-match.ts";
 import { normalizeTags } from "#/lib/shared/tag-normalize.ts";
@@ -184,6 +187,50 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 	log.info("bookmark_processed", { bookmarkId: bookmark.id, model });
 }
 
+// Backfill-only: assigns a category to a processed bookmark that has none.
+// Never touches status/processedAt, so an exhausted retry cannot flip a
+// processed bookmark to failed (onJobExhausted skips processed ones).
+async function categorizeBookmark(payload: { bookmarkId: number }) {
+	const bookmark = loadActiveBookmark(payload.bookmarkId);
+	if (!bookmark) return;
+	// Idempotent, and respects a manual assignment made after enqueueing.
+	if (bookmark.categoryId !== null) return;
+
+	const userCategories = userCategoriesFor(bookmark.userId);
+	if (userCategories.length === 0) return;
+
+	const { model } = userModel(bookmark.userId);
+	const tagNames = db
+		.select({ name: tags.name })
+		.from(bookmarkTags)
+		.innerJoin(tags, eq(bookmarkTags.tagId, tags.id))
+		.where(eq(bookmarkTags.bookmarkId, bookmark.id))
+		.all()
+		.map((row) => row.name);
+
+	const picked = await pickBookmarkCategory({
+		url: bookmark.url,
+		title: bookmark.title,
+		summary: bookmark.summary,
+		description: bookmark.description,
+		tags: tagNames,
+		categories: userCategories.map((c) => c.name),
+		model,
+	});
+	const matched = matchCategory(picked, userCategories);
+	if (!matched) return;
+
+	db.update(bookmarks)
+		.set({ categoryId: matched.id, updatedAt: new Date() })
+		.where(eq(bookmarks.id, bookmark.id))
+		.run();
+	log.info("bookmark_categorized", {
+		bookmarkId: bookmark.id,
+		category: matched.name,
+		model,
+	});
+}
+
 export const handlers: {
 	[K in JobPayload["kind"]]: (
 		payload: Extract<JobPayload, { kind: K }>,
@@ -191,6 +238,7 @@ export const handlers: {
 } = {
 	fetch_and_extract: fetchAndExtract,
 	tag_bookmark: tagBookmark,
+	categorize_bookmark: categorizeBookmark,
 };
 
 // Called by the worker when a job has exhausted its retries: surface the

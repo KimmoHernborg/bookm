@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "#/db/index.ts";
 import { bookmarks, categories, defaultCategories } from "#/db/schema.ts";
+import { enqueueJob } from "#/lib/server/jobs/queue.ts";
 import { requireAdmin, requireUser } from "#/lib/server/session.ts";
 
 export type CategoryListItem = {
@@ -122,6 +123,33 @@ export const deleteCategory = createServerFn({ method: "POST" })
 			.where(and(eq(categories.id, data.id), eq(categories.userId, user.id)))
 			.run();
 	});
+
+// Enqueue a category-only AI pass for every processed, uncategorized
+// bookmark. User-triggered (Settings) and re-runnable — e.g. after adding
+// a new category.
+export const backfillCategories = createServerFn({ method: "POST" }).handler(
+	async () => {
+		const user = await requireUser();
+		const ids = db
+			.select({ id: bookmarks.id })
+			.from(bookmarks)
+			.where(
+				and(
+					eq(bookmarks.userId, user.id),
+					isNull(bookmarks.deletedAt),
+					isNull(bookmarks.categoryId),
+					// Pending bookmarks get a category via tag_bookmark instead.
+					eq(bookmarks.status, "processed"),
+				),
+			)
+			.all()
+			.map((row) => row.id);
+		for (const bookmarkId of ids) {
+			enqueueJob({ kind: "categorize_bookmark", bookmarkId });
+		}
+		return { enqueued: ids.length };
+	},
+);
 
 // ---------------------------------------------------------------------------
 // Admin: the global template copied to new users at signup. Edits do not
