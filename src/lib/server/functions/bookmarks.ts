@@ -41,10 +41,12 @@ export type BookmarkGroup = {
 };
 
 export type RailCategory = { id: number; name: string; count: number };
+export type RailTag = { name: string; count: number };
 
 export type BookmarksPage = {
 	groups: Array<BookmarkGroup>;
 	railCategories: Array<RailCategory>;
+	railTags: Array<RailTag>;
 	uncategorizedCount: number;
 	total: number;
 };
@@ -54,6 +56,7 @@ const listInputSchema = z.object({
 	q: z.string().optional(),
 	// number = a category id, "none" = only uncategorized
 	category: z.union([z.number().int(), z.literal("none")]).optional(),
+	tag: z.string().optional(),
 	contentType: z.enum(CONTENT_TYPES).optional(),
 	date: z.enum(["today", "week", "month"]).optional(),
 });
@@ -117,6 +120,18 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 		if (data.q?.trim()) {
 			const matches = searchBookmarkIds(user.id, data.q);
 			filtered = filtered.filter((r) => matches.has(r.bookmark.id));
+		}
+		if (data.tag) {
+			const tagged = new Set(
+				db
+					.select({ bookmarkId: bookmarkTags.bookmarkId })
+					.from(bookmarkTags)
+					.innerJoin(tags, eq(bookmarkTags.tagId, tags.id))
+					.where(and(eq(tags.userId, user.id), eq(tags.name, data.tag)))
+					.all()
+					.map((row) => row.bookmarkId),
+			);
+			filtered = filtered.filter((r) => tagged.has(r.bookmark.id));
 		}
 
 		const ids = filtered.map((r) => r.bookmark.id);
@@ -215,6 +230,25 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 						.all()
 				: [];
 
+		const railTagRows =
+			data.view === "active"
+				? db
+						.select({ name: tags.name, value: count(bookmarkTags.bookmarkId) })
+						.from(tags)
+						.innerJoin(bookmarkTags, eq(bookmarkTags.tagId, tags.id))
+						.innerJoin(bookmarks, eq(bookmarks.id, bookmarkTags.bookmarkId))
+						.where(
+							and(
+								eq(tags.userId, user.id),
+								isNull(bookmarks.deletedAt),
+								eq(bookmarks.archived, false),
+							),
+						)
+						.groupBy(tags.id)
+						.orderBy(sql`${tags.name} COLLATE NOCASE`)
+						.all()
+				: [];
+
 		const [uncategorizedActive] =
 			data.view === "active"
 				? db
@@ -238,6 +272,7 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 				name: r.name,
 				count: r.value,
 			})),
+			railTags: railTagRows.map((r) => ({ name: r.name, count: r.value })),
 			uncategorizedCount: uncategorizedActive?.value ?? 0,
 			total: items.length,
 		};

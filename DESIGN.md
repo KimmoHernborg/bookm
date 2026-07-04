@@ -90,9 +90,9 @@ Flat by default. Depth is conveyed through background tint shifts and hairline b
 
 At viewport ≥960px: a 180px sticky left rail for category navigation and a fluid main column for the grouped list. Below 960px the rail collapses to a horizontal scroll strip above the list.
 
-### Category rail (left)
+### Filter rail (left)
 
-Plain vertical list of category names with counts. Sticky. Items: 13px, ink-secondary at rest; ink + surface background at active. "All bookmarks" at top, "Uncategorized (n)" at bottom. Empty categories stay visible with a 0 count (the list is curated; the AI picks from it). No icons, no colors, no indentation.
+Plain vertical list in two labeled sections — Categories, then Tags — each name with a count. Sticky. Items: 13px, ink-secondary at rest; ink + surface background at active. "All bookmarks" at top; "Uncategorized (n)" closes the category section. Empty categories stay visible with a 0 count (the list is curated; the AI picks from it). One rail filter is active at a time: picking a category clears the tag and vice versa. No icons, no colors, no indentation.
 
 ### Bookmark list (right)
 
