@@ -8,6 +8,8 @@ tags, titles, and AI-generated summaries.
 
 - **Zero-effort save** — paste a URL or bulk-import a browser bookmarks file;
   tagging happens in the background.
+- **Light and dark** — follows your OS by default; override per browser from
+  the avatar menu or Settings.
 - **Self-hostable** — single process, SQLite, one Docker volume.
 - **Honest states** — pending, failed, and broken links are shown plainly
   inline and surfaced in the admin view.

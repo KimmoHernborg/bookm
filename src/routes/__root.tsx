@@ -34,13 +34,24 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				href: "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap",
 			},
 		],
+		scripts: [
+			{
+				// Runs blocking in <head> so the theme lands before first paint.
+				// Must stay dependency-free; "bookm-theme" mirrors THEME_STORAGE_KEY
+				// in src/lib/shared/theme.ts.
+				children:
+					'(function(){try{var m=localStorage.getItem("bookm-theme");if(m==="dark"||(m!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}})()',
+			},
+		],
 	}),
 	shellComponent: RootDocument,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en">
+		// The no-FOUC script sets the class before hydration; keep React 19 from
+		// "fixing" the mismatch and stripping it.
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>

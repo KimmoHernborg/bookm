@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Settings, Shield } from "lucide-react";
-
+import { ThemeModeSwitcher } from "#/components/theme-mode-switcher.tsx";
 import {
 	Avatar,
 	AvatarFallback,
@@ -63,6 +63,11 @@ export function UserMenu({ user }: { user: SessionUser }) {
 						</Link>
 					</DropdownMenuItem>
 				) : null}
+				<DropdownMenuSeparator />
+				<DropdownMenuLabel className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
+					Theme
+				</DropdownMenuLabel>
+				<ThemeModeSwitcher variant="menu" />
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					onSelect={async () => {

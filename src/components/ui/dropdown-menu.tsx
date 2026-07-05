@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type * as React from "react";
 
@@ -77,6 +78,41 @@ function DropdownMenuItem({
 	);
 }
 
+function DropdownMenuRadioGroup({
+	...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
+	return (
+		<DropdownMenuPrimitive.RadioGroup
+			data-slot="dropdown-menu-radio-group"
+			{...props}
+		/>
+	);
+}
+
+function DropdownMenuRadioItem({
+	className,
+	children,
+	...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
+	return (
+		<DropdownMenuPrimitive.RadioItem
+			data-slot="dropdown-menu-radio-item"
+			className={cn(
+				"relative flex cursor-default select-none items-center gap-2 py-1.5 pr-3 pl-8 text-[13px] text-ink-secondary outline-none focus:bg-surface focus:text-ink data-[state=checked]:text-ink data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+				className,
+			)}
+			{...props}
+		>
+			<span className="absolute left-3 flex size-3.5 items-center justify-center">
+				<DropdownMenuPrimitive.ItemIndicator>
+					<Check className="size-3.5" />
+				</DropdownMenuPrimitive.ItemIndicator>
+			</span>
+			{children}
+		</DropdownMenuPrimitive.RadioItem>
+	);
+}
+
 function DropdownMenuSeparator({
 	className,
 	...props
@@ -96,6 +132,8 @@ export {
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 };
