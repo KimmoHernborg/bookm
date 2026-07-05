@@ -4,11 +4,10 @@ import {
 	Link,
 	Outlet,
 	redirect,
-	useNavigate,
 } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { authClient } from "#/lib/auth-client.ts";
+import { UserMenu } from "#/components/user-menu.tsx";
 import { getAuthState } from "#/lib/server/functions/auth-meta.ts";
 import { addBookmark } from "#/lib/server/functions/bookmarks.ts";
 
@@ -78,8 +77,6 @@ function AddBookmarkForm() {
 
 function AppShell() {
 	const { user } = Route.useRouteContext();
-	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 
 	return (
 		<div className="min-h-screen">
@@ -97,49 +94,25 @@ function AppShell() {
 							/>
 							Bookm
 						</Link>
-						<nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink-secondary sm:order-3">
-							<Link
-								to="/archived"
-								className="-my-1 py-1 hover:text-ink"
-								activeProps={{ className: "text-ink" }}
-							>
-								Archived
-							</Link>
-							<Link
-								to="/import"
-								className="-my-1 py-1 hover:text-ink"
-								activeProps={{ className: "text-ink" }}
-							>
-								Import
-							</Link>
-							<Link
-								to="/settings"
-								className="-my-1 py-1 hover:text-ink"
-								activeProps={{ className: "text-ink" }}
-							>
-								Settings
-							</Link>
-							{user.isAdmin ? (
+						<div className="flex items-center gap-4 sm:order-3">
+							<nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink-secondary">
 								<Link
-									to="/admin"
+									to="/archived"
 									className="-my-1 py-1 hover:text-ink"
 									activeProps={{ className: "text-ink" }}
 								>
-									Admin
+									Archived
 								</Link>
-							) : null}
-							<button
-								type="button"
-								onClick={async () => {
-									await authClient.signOut();
-									queryClient.clear();
-									await navigate({ to: "/login" });
-								}}
-								className="-my-1 py-1 text-ink-muted hover:text-ink"
-							>
-								Sign out
-							</button>
-						</nav>
+								<Link
+									to="/import"
+									className="-my-1 py-1 hover:text-ink"
+									activeProps={{ className: "text-ink" }}
+								>
+									Import
+								</Link>
+							</nav>
+							<UserMenu user={user} />
+						</div>
 					</div>
 					<AddBookmarkForm />
 				</div>
