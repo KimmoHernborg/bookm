@@ -66,9 +66,14 @@ export function UserMenu({ user }: { user: SessionUser }) {
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					onSelect={async () => {
-						await authClient.signOut();
-						queryClient.clear();
-						await navigate({ to: "/login" });
+						// Even if the sign-out request fails, drop local state and
+						// return to the login screen rather than staying half signed in.
+						try {
+							await authClient.signOut();
+						} finally {
+							queryClient.clear();
+							await navigate({ to: "/login" });
+						}
 					}}
 				>
 					<LogOut />
