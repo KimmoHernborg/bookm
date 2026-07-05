@@ -118,8 +118,9 @@ function MainView() {
 			</aside>
 
 			<main className="min-w-0 flex-1">
-				<div className="flex flex-wrap items-center gap-3">
+				<div className="flex flex-wrap items-center gap-3 min-[960px]:flex-nowrap">
 					<input
+						id="search"
 						type="search"
 						value={q}
 						onChange={(e) => setQ(e.target.value)}
@@ -127,15 +128,16 @@ function MainView() {
 							activeFilterName ? `Search in ${activeFilterName}` : "Search"
 						}
 						aria-label="Search bookmarks"
-						className="w-full max-w-xs border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:text-[13px]"
+						className="w-full border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:w-auto min-[960px]:flex-1 min-[960px]:text-[13px]"
 					/>
 					<select
+						id="date-filter"
 						value={date ?? ""}
 						onChange={(e) =>
 							setDate((e.target.value || undefined) as DateFilter | undefined)
 						}
 						aria-label="Filter by date added"
-						className="border border-hairline bg-paper px-2 py-1.5 text-[16px] text-ink-secondary outline-none focus:border-accent max-[959px]:flex-1 min-[960px]:text-[13px]"
+						className="border border-hairline bg-paper px-2 py-1.5 text-[16px] text-ink-secondary outline-none focus:border-accent max-[959px]:flex-1 min-[960px]:shrink-0 min-[960px]:text-[13px]"
 					>
 						<option value="">Any time</option>
 						<option value="today">Today</option>
