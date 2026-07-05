@@ -97,6 +97,13 @@ function AppShell() {
 						<div className="flex items-center gap-4 sm:order-3">
 							<nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink-secondary">
 								<Link
+									to="/"
+									className="-my-1 py-1 hover:text-ink"
+									activeProps={{ className: "text-ink" }}
+								>
+									Bookmarks
+								</Link>
+								<Link
 									to="/archived"
 									className="-my-1 py-1 hover:text-ink"
 									activeProps={{ className: "text-ink" }}
