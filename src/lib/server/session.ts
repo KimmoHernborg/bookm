@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
+
 import { getRequest } from "@tanstack/react-start/server";
 
 import { auth } from "#/lib/auth.ts";
+import { normalizeGravatarEmail } from "#/lib/shared/avatar.ts";
 import { ensureInit } from "./init.ts";
 
 export type SessionUser = {
@@ -8,6 +11,8 @@ export type SessionUser = {
 	email: string;
 	name: string;
 	isAdmin: boolean;
+	// sha256 of the normalized email, for Gravatar lookups client-side.
+	avatarHash: string;
 };
 
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -21,6 +26,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 		email: u.email,
 		name: u.name,
 		isAdmin: u.isAdmin === true,
+		avatarHash: createHash("sha256")
+			.update(normalizeGravatarEmail(u.email))
+			.digest("hex"),
 	};
 }
 
