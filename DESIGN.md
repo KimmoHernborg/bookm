@@ -26,26 +26,29 @@ Warm paper-tinted neutrals with a single deep pine-green accent: a page, ink on 
 
 All values use OKLCH. Neutrals sit at hue 79 (warm paper); the accent at hue 135 (pine green). No pure black or white.
 
+The same eight semantic tokens carry both themes. Light is the default; dark re-inks the tokens (same hues, adjusted lightness) and everything else follows.
+
 ### Primary
 
 - **Deep Pine** `oklch(0.3676 0.0839 135.53)`: the one accent. Links at active/focus, primary action, selected category in the rail. Hover darkens to `oklch(0.3088 0.0617 135.819503)`. Covers at most 10% of any screen.
+- In dark mode the pine lightens to `oklch(0.68 0.10 135.53)` (hover `oklch(0.74 0.11 135.53)`) to hold AA contrast on the dark paper. Hover always moves away from the page: darker in light mode, lighter in dark mode.
 
 ### Neutral
 
-| Token           | Value                       | Use                                              |
-| --------------- | --------------------------- | ------------------------------------------------ |
-| `paper`         | `oklch(0.9667 0.005 79.41)` | Page background                                  |
-| `surface`       | `oklch(0.94 0.006 79.41)`   | Row hover, category rail active background            |
-| `hairline`      | `oklch(0.89 0.007 79.41)`   | 1px section dividers (category groups only)           |
-| `ink`           | `oklch(0.16 0.01 79.41)`    | Primary text, bookmark titles                    |
-| `ink-secondary` | `oklch(0.47 0.009 79.41)`   | Domain, counts, category rail labels, section headers |
-| `ink-muted`     | `oklch(0.64 0.007 79.41)`   | "processing…" and other inline status labels     |
+| Token           | Light                       | Dark                        | Use                                                   |
+| --------------- | --------------------------- | --------------------------- | ----------------------------------------------------- |
+| `paper`         | `oklch(0.9667 0.005 79.41)` | `oklch(0.2178 0.006 79.41)` | Page background                                       |
+| `surface`       | `oklch(0.94 0.006 79.41)`   | `oklch(0.26 0.007 79.41)`   | Row hover, category rail active background            |
+| `hairline`      | `oklch(0.89 0.007 79.41)`   | `oklch(0.32 0.008 79.41)`   | 1px section dividers (category groups only)           |
+| `ink`           | `oklch(0.16 0.01 79.41)`    | `oklch(0.92 0.005 79.41)`   | Primary text, bookmark titles                         |
+| `ink-secondary` | `oklch(0.47 0.009 79.41)`   | `oklch(0.72 0.007 79.41)`   | Domain, counts, category rail labels, section headers |
+| `ink-muted`     | `oklch(0.64 0.007 79.41)`   | `oklch(0.58 0.008 79.41)`   | "processing…" and other inline status labels          |
 
 ### Named Rules
 
 **The Ink Budget Rule.** The pine-green accent covers at most 10% of any screen. If a screen feels flat, the fix is typographic hierarchy, never more accent.
 
-**The Tinted Page Rule.** Every neutral is tinted toward the warm paper hue (OKLCH chroma 0.005 to 0.01). Pure black and pure white are prohibited.
+**The Tinted Page Rule.** Every neutral is tinted toward the warm paper hue (OKLCH chroma 0.005 to 0.01). Pure black and pure white are prohibited — in dark mode too: dark neutrals stay at hue 79, and the page is warm near-black charcoal, never `#000`.
 
 ## 3. Typography
 
@@ -80,7 +83,7 @@ Flat by default. Depth is conveyed through background tint shifts and hairline b
 
 ## 5. Main View Layout
 
-**Theme scene:** A person in a quiet room in the evening, browser closed, scanning a printed index with a cup of coffee nearby, looking for a specific article they saved three weeks ago. Light mode. Ambient warmth. Paper quality.
+**Theme scene:** A person in a quiet room in the evening, browser closed, scanning a printed index with a cup of coffee nearby, looking for a specific article they saved three weeks ago. Light mode by default; dark mode re-inks the same tokens for the same room after dark. Ambient warmth. Paper quality. Theme (system / light / dark) is switchable from the avatar menu and Settings and follows the OS by default.
 
 **Color strategy:** Restrained. Warm paper neutrals carry the surface; the pine-green accent appears only on the active/selected category in the rail and on focused/hovered link text.
 

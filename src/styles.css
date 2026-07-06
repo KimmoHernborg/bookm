@@ -2,6 +2,8 @@
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Bookm design tokens — see DESIGN.md ("The Quiet Index").
    Warm paper neutrals, one deep ink-blue accent, OKLCH throughout.
    No pure black or white (The Tinted Page Rule). */
@@ -16,6 +18,28 @@
 	--color-accent-hover: oklch(0.3088 0.0617 135.819503);
 
 	--font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Dark theme — same semantic tokens, re-inked. Neutrals stay at hue 79.41
+   (The Tinted Page Rule: no pure black); pine accent lightens for AA and
+   hover moves away from the page (lighter here, darker in light mode). */
+.dark {
+	--color-paper: oklch(0.2178 0.006 79.41);
+	--color-surface: oklch(0.26 0.007 79.41);
+	--color-hairline: oklch(0.32 0.008 79.41);
+	--color-ink: oklch(0.92 0.005 79.41);
+	--color-ink-secondary: oklch(0.72 0.007 79.41);
+	--color-ink-muted: oklch(0.58 0.008 79.41);
+	--color-accent: oklch(0.68 0.1 135.53);
+	--color-accent-hover: oklch(0.74 0.11 135.53);
+}
+
+html {
+	color-scheme: light;
+}
+
+html.dark {
+	color-scheme: dark;
 }
 
 body {

@@ -3,6 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { CategoryList } from "#/components/category-list.tsx";
+import { ThemeModeSwitcher } from "#/components/theme-mode-switcher.tsx";
 import { authClient } from "#/lib/auth-client.ts";
 import {
 	backfillCategories,
@@ -91,10 +92,28 @@ function SettingsView() {
 				</div>
 			</form>
 
+			<AppearanceSection />
+
 			<AccountSection />
 
 			<CategoriesSection />
 		</main>
+	);
+}
+
+function AppearanceSection() {
+	return (
+		<section className="mt-12 max-w-md">
+			<h2 className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
+				Appearance
+			</h2>
+			<div className="mt-4 flex flex-col gap-1">
+				<ThemeModeSwitcher />
+				<span className="text-xs text-ink-muted">
+					System follows your device setting. Stored in this browser.
+				</span>
+			</div>
+		</section>
 	);
 }
 

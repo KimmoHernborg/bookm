@@ -4,6 +4,7 @@ import {
 	HeadContent,
 	Scripts,
 } from "@tanstack/react-router";
+import { THEME_STORAGE_KEY } from "#/lib/shared/theme.ts";
 import appCss from "../styles.css?url";
 
 interface MyRouterContext {
@@ -34,13 +35,23 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				href: "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap",
 			},
 		],
+		scripts: [
+			{
+				// Runs blocking in <head> so the theme lands before first paint.
+				// The emitted code must stay dependency-free, so the storage key is
+				// baked in at build time rather than read at runtime.
+				children: `(function(){try{var m=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(m==="dark"||(m!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}})()`,
+			},
+		],
 	}),
 	shellComponent: RootDocument,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en">
+		// The no-FOUC script sets the class before hydration; keep React 19 from
+		// "fixing" the mismatch and stripping it.
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>
