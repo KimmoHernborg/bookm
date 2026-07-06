@@ -4,6 +4,7 @@ import {
 	HeadContent,
 	Scripts,
 } from "@tanstack/react-router";
+import { THEME_STORAGE_KEY } from "#/lib/shared/theme.ts";
 import appCss from "../styles.css?url";
 
 interface MyRouterContext {
@@ -37,10 +38,9 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		scripts: [
 			{
 				// Runs blocking in <head> so the theme lands before first paint.
-				// Must stay dependency-free; "bookm-theme" mirrors THEME_STORAGE_KEY
-				// in src/lib/shared/theme.ts.
-				children:
-					'(function(){try{var m=localStorage.getItem("bookm-theme");if(m==="dark"||(m!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}})()',
+				// The emitted code must stay dependency-free, so the storage key is
+				// baked in at build time rather than read at runtime.
+				children: `(function(){try{var m=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(m==="dark"||(m!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}})()`,
 			},
 		],
 	}),

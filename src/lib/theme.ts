@@ -68,10 +68,15 @@ function onStorage(event: StorageEvent) {
 // Attached once per page, not per subscriber: the switcher only mounts while
 // the menu is open, but OS-preference flips must re-theme the page anytime.
 if (typeof window !== "undefined") {
-	window
-		.matchMedia("(prefers-color-scheme: dark)")
-		.addEventListener("change", onSystemChange);
+	const media = window.matchMedia("(prefers-color-scheme: dark)");
+	media.addEventListener("change", onSystemChange);
 	window.addEventListener("storage", onStorage);
+	// Vite HMR re-evaluates this module; drop the old handlers so they
+	// don't stack up during dev.
+	import.meta.hot?.dispose(() => {
+		media.removeEventListener("change", onSystemChange);
+		window.removeEventListener("storage", onStorage);
+	});
 }
 
 function subscribe(callback: () => void) {
