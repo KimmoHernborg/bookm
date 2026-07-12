@@ -439,6 +439,7 @@ function ShowcaseSection() {
 		queryFn: () => getShowcaseStatus(),
 	});
 	const [copied, setCopied] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
 	function refresh() {
@@ -447,9 +448,12 @@ function ShowcaseSection() {
 
 	async function onGenerate() {
 		setBusy(true);
+		setError(null);
 		try {
 			await generateShowcaseToken();
 			refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Something went wrong");
 		} finally {
 			setBusy(false);
 		}
@@ -457,12 +461,27 @@ function ShowcaseSection() {
 
 	async function onDisable() {
 		setBusy(true);
+		setError(null);
 		try {
 			await disableShowcase();
 			refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Something went wrong");
 		} finally {
 			setBusy(false);
 		}
+	}
+
+	async function onCopy(url: string) {
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			setError("Could not copy — select the link and copy it manually.");
+			return;
+		}
+		setError(null);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
 	}
 
 	const shareUrl =
@@ -478,14 +497,21 @@ function ShowcaseSection() {
 				the link can view it — no account needed.
 			</p>
 			{data == null ? null : shareUrl == null ? (
-				<button
-					type="button"
-					disabled={busy}
-					onClick={() => void onGenerate()}
-					className="mt-2 w-fit bg-accent px-3 py-1.5 text-[13px] font-medium text-paper hover:bg-accent-hover disabled:opacity-60"
-				>
-					Enable public showcase
-				</button>
+				<div className="mt-2 flex items-center gap-3">
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() => void onGenerate()}
+						className="w-fit bg-accent px-3 py-1.5 text-[13px] font-medium text-paper hover:bg-accent-hover disabled:opacity-60"
+					>
+						Enable public showcase
+					</button>
+					{error ? (
+						<span role="alert" className="text-xs text-ink-muted">
+							{error}
+						</span>
+					) : null}
+				</div>
 			) : (
 				<div className="mt-2 flex flex-col gap-3">
 					<input
@@ -497,11 +523,7 @@ function ShowcaseSection() {
 					<div className="flex items-center gap-3">
 						<button
 							type="button"
-							onClick={() => {
-								void navigator.clipboard.writeText(shareUrl);
-								setCopied(true);
-								setTimeout(() => setCopied(false), 2000);
-							}}
+							onClick={() => void onCopy(shareUrl)}
 							className="w-fit bg-accent px-3 py-1.5 text-[13px] font-medium text-paper hover:bg-accent-hover"
 						>
 							Copy link
@@ -538,7 +560,11 @@ function ShowcaseSection() {
 						>
 							Disable
 						</button>
-						{copied ? (
+						{error ? (
+							<span role="alert" className="text-xs text-ink-muted">
+								{error}
+							</span>
+						) : copied ? (
 							<span className="text-xs text-ink-muted">Copied.</span>
 						) : null}
 					</div>

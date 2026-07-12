@@ -53,7 +53,16 @@ function ShowcasePage() {
 				) : (
 					<div className="mt-8 flex flex-col gap-8">
 						{groups.map((group) => (
-							<section key={group.category ?? "__uncategorized__"}>
+							// Category names are unique per user; the prefix keeps a
+							// category literally named "uncategorized" from colliding
+							// with the null group.
+							<section
+								key={
+									group.category != null
+										? `c:${group.category}`
+										: "uncategorized"
+								}
+							>
 								<h2 className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
 									{group.category ?? "Uncategorized"}
 								</h2>
@@ -81,12 +90,16 @@ function ShowcaseRow({ item }: { item: ShowcaseBookmark }) {
 						href={item.url}
 						target="_blank"
 						rel="noreferrer"
+						aria-describedby={
+							item.description ? `showcase-desc-${item.id}` : undefined
+						}
 						className="peer text-[15px] font-[450] text-ink hover:text-accent focus-visible:text-accent focus-visible:outline-none"
 					>
 						{item.title || item.url}
 					</a>
 					{item.description ? (
 						<span
+							id={`showcase-desc-${item.id}`}
 							role="tooltip"
 							className="pointer-events-none absolute top-full left-0 z-20 mt-1 hidden w-max max-w-[min(36rem,calc(100vw-3rem))] border border-hairline bg-paper px-3 py-2 text-[13px] leading-relaxed text-ink-secondary whitespace-normal shadow-sm peer-hover:block peer-focus-visible:block"
 						>
