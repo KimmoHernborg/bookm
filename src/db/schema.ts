@@ -13,23 +13,30 @@ import {
 // Better Auth tables
 // ---------------------------------------------------------------------------
 
-export const user = sqliteTable("user", {
-	id: text("id").primaryKey(),
-	name: text("name").notNull(),
-	email: text("email").notNull().unique(),
-	emailVerified: integer("email_verified", { mode: "boolean" })
-		.notNull()
-		.default(false),
-	image: text("image"),
-	isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
-	openrouterModel: text("openrouter_model"),
-	createdAt: integer("created_at", { mode: "timestamp" })
-		.notNull()
-		.default(sql`(unixepoch())`),
-	updatedAt: integer("updated_at", { mode: "timestamp" })
-		.notNull()
-		.default(sql`(unixepoch())`),
-});
+export const user = sqliteTable(
+	"user",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(),
+		email: text("email").notNull().unique(),
+		emailVerified: integer("email_verified", { mode: "boolean" })
+			.notNull()
+			.default(false),
+		image: text("image"),
+		isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
+		openrouterModel: text("openrouter_model"),
+		// null = public showcase disabled. Managed outside better-auth so the
+		// token never rides along in session payloads.
+		showcaseToken: text("showcase_token"),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.default(sql`(unixepoch())`),
+		updatedAt: integer("updated_at", { mode: "timestamp" })
+			.notNull()
+			.default(sql`(unixepoch())`),
+	},
+	(t) => [uniqueIndex("user_showcase_token_uq").on(t.showcaseToken)],
+);
 
 export const session = sqliteTable("session", {
 	id: text("id").primaryKey(),

@@ -14,6 +14,10 @@ import { searchBookmarkIds, syncBookmarkFts } from "#/lib/server/fts.ts";
 import { resolveTagIds } from "#/lib/server/jobs/handlers.ts";
 import { enqueueJob } from "#/lib/server/jobs/queue.ts";
 import { requireUser } from "#/lib/server/session.ts";
+import {
+	type CategoryGroup,
+	groupBookmarksByCategory,
+} from "#/lib/shared/bookmark-grouping.ts";
 import { canonicalizeUrl, domainOf, isHttpUrl } from "#/lib/shared/url.ts";
 
 export type BookmarkListItem = {
@@ -31,11 +35,7 @@ export type BookmarkListItem = {
 	category: string | null;
 };
 
-export type BookmarkGroup = {
-	categoryId: number | null; // null = the Uncategorized group
-	category: string | null;
-	bookmarks: Array<BookmarkListItem>;
-};
+export type BookmarkGroup = CategoryGroup<BookmarkListItem>;
 
 export type RailCategory = { id: number; name: string; count: number };
 export type RailTag = { name: string; count: number };
@@ -65,13 +65,6 @@ function dateCutoff(date: "today" | "week" | "month"): Date {
 	}
 	const days = date === "week" ? 7 : 30;
 	return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-}
-
-function sortGroup(items: Array<BookmarkListItem>) {
-	// Starred float to the top; the rest by date added descending.
-	items.sort((a, b) =>
-		a.starred === b.starred ? b.createdAt - a.createdAt : a.starred ? -1 : 1,
-	);
 }
 
 export const getBookmarksPage = createServerFn({ method: "GET" })
@@ -162,39 +155,7 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 			category: r.categoryName,
 		}));
 
-		// Each bookmark appears exactly once, under its category group.
-		const byCategory = new Map<number, BookmarkGroup>();
-		const uncategorized: Array<BookmarkListItem> = [];
-		for (const item of items) {
-			if (item.categoryId === null) {
-				uncategorized.push(item);
-			} else {
-				const group = byCategory.get(item.categoryId) ?? {
-					categoryId: item.categoryId,
-					category: item.category,
-					bookmarks: [],
-				};
-				group.bookmarks.push(item);
-				byCategory.set(item.categoryId, group);
-			}
-		}
-
-		// Groups sort alphabetically, matching the rail's COLLATE NOCASE order.
-		const groups: Array<BookmarkGroup> = [...byCategory.values()].sort((a, b) =>
-			(a.category ?? "").localeCompare(b.category ?? "", undefined, {
-				sensitivity: "base",
-			}),
-		);
-		for (const group of groups) sortGroup(group.bookmarks);
-		sortGroup(uncategorized);
-		// The Uncategorized group sits at the bottom.
-		if (uncategorized.length > 0) {
-			groups.push({
-				categoryId: null,
-				category: null,
-				bookmarks: uncategorized,
-			});
-		}
+		const groups = groupBookmarksByCategory(items);
 
 		// Rail counts always reflect the unfiltered active view. LEFT JOIN so
 		// empty categories still show (curated list; the AI can pick them).

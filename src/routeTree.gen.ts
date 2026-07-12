@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as ApiHealthzRouteImport } from './routes/api/healthz'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppImportRouteImport } from './routes/_app.import'
@@ -38,6 +39,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const STokenRoute = STokenRouteImport.update({
+  id: '/s/$token',
+  path: '/s/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHealthzRoute = ApiHealthzRouteImport.update({
   id: '/api/healthz',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/import': typeof AppImportRoute
   '/settings': typeof AppSettingsRoute
   '/api/healthz': typeof ApiHealthzRoute
+  '/s/$token': typeof STokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/import': typeof AppImportRoute
   '/settings': typeof AppSettingsRoute
   '/api/healthz': typeof ApiHealthzRoute
+  '/s/$token': typeof STokenRoute
   '/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/_app/import': typeof AppImportRoute
   '/_app/settings': typeof AppSettingsRoute
   '/api/healthz': typeof ApiHealthzRoute
+  '/s/$token': typeof STokenRoute
   '/_app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/import'
     | '/settings'
     | '/api/healthz'
+    | '/s/$token'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/import'
     | '/settings'
     | '/api/healthz'
+    | '/s/$token'
     | '/'
     | '/api/auth/$'
   id:
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/_app/import'
     | '/_app/settings'
     | '/api/healthz'
+    | '/s/$token'
     | '/_app/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -147,6 +159,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   ApiHealthzRoute: typeof ApiHealthzRoute
+  STokenRoute: typeof STokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -179,6 +192,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/s/$token': {
+      id: '/s/$token'
+      path: '/s/$token'
+      fullPath: '/s/$token'
+      preLoaderRoute: typeof STokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/healthz': {
       id: '/api/healthz'
@@ -248,6 +268,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   ApiHealthzRoute: ApiHealthzRoute,
+  STokenRoute: STokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

@@ -16,6 +16,11 @@ import {
 	getSettings,
 	updateSettings,
 } from "#/lib/server/functions/settings.ts";
+import {
+	disableShowcase,
+	generateShowcaseToken,
+	getShowcaseStatus,
+} from "#/lib/server/functions/showcase.ts";
 
 export const Route = createFileRoute("/_app/settings")({
 	component: SettingsView,
@@ -97,6 +102,8 @@ function SettingsView() {
 			<AccountSection />
 
 			<CategoriesSection />
+
+			<ShowcaseSection />
 		</main>
 	);
 }
@@ -421,6 +428,148 @@ function CategoriesSection() {
 					</span>
 				) : null}
 			</div>
+		</section>
+	);
+}
+
+function ShowcaseSection() {
+	const queryClient = useQueryClient();
+	const { data } = useQuery({
+		queryKey: ["showcase"],
+		queryFn: () => getShowcaseStatus(),
+	});
+	const [copied, setCopied] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	function refresh() {
+		void queryClient.invalidateQueries({ queryKey: ["showcase"] });
+	}
+
+	async function onGenerate() {
+		setBusy(true);
+		setError(null);
+		try {
+			await generateShowcaseToken();
+			refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Something went wrong");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function onDisable() {
+		setBusy(true);
+		setError(null);
+		try {
+			await disableShowcase();
+			refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Something went wrong");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function onCopy(url: string) {
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			setError("Could not copy — select the link and copy it manually.");
+			return;
+		}
+		setError(null);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	}
+
+	const shareUrl =
+		data?.token != null ? `${window.location.origin}/s/${data.token}` : null;
+
+	return (
+		<section className="mt-12 max-w-md">
+			<h2 className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
+				Public showcase
+			</h2>
+			<p className="mt-1 mb-2 text-xs text-ink-muted">
+				Share a public, read-only page of your starred bookmarks. Anyone with
+				the link can view it — no account needed.
+			</p>
+			{data == null ? null : shareUrl == null ? (
+				<div className="mt-2 flex items-center gap-3">
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() => void onGenerate()}
+						className="w-fit bg-accent px-3 py-1.5 text-[13px] font-medium text-paper hover:bg-accent-hover disabled:opacity-60"
+					>
+						Enable public showcase
+					</button>
+					{error ? (
+						<span role="alert" className="text-xs text-ink-muted">
+							{error}
+						</span>
+					) : null}
+				</div>
+			) : (
+				<div className="mt-2 flex flex-col gap-3">
+					<input
+						readOnly
+						value={shareUrl}
+						onFocus={(e) => e.target.select()}
+						className="border border-hairline bg-paper px-3 py-2 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+					/>
+					<div className="flex items-center gap-3">
+						<button
+							type="button"
+							onClick={() => void onCopy(shareUrl)}
+							className="w-fit bg-accent px-3 py-1.5 text-[13px] font-medium text-paper hover:bg-accent-hover"
+						>
+							Copy link
+						</button>
+						<button
+							type="button"
+							disabled={busy}
+							onClick={() => {
+								if (
+									window.confirm(
+										"Generate a new link? The current link stops working.",
+									)
+								) {
+									void onGenerate();
+								}
+							}}
+							className="w-fit border border-hairline px-3 py-1.5 text-[13px] text-ink-secondary hover:text-ink disabled:opacity-60"
+						>
+							Regenerate
+						</button>
+						<button
+							type="button"
+							disabled={busy}
+							onClick={() => {
+								if (
+									window.confirm(
+										"Disable the public showcase? The link stops working.",
+									)
+								) {
+									void onDisable();
+								}
+							}}
+							className="w-fit border border-hairline px-3 py-1.5 text-[13px] text-ink-secondary hover:text-ink disabled:opacity-60"
+						>
+							Disable
+						</button>
+						{error ? (
+							<span role="alert" className="text-xs text-ink-muted">
+								{error}
+							</span>
+						) : copied ? (
+							<span className="text-xs text-ink-muted">Copied.</span>
+						) : null}
+					</div>
+				</div>
+			)}
 		</section>
 	);
 }
