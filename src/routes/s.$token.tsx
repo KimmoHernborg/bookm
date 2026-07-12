@@ -47,7 +47,9 @@ function ShowcasePage() {
 					{ownerName}'s starred bookmarks
 				</h1>
 				{groups.length === 0 ? (
-					<p className="mt-8 text-sm text-ink-secondary">Nothing starred yet.</p>
+					<p className="mt-8 text-sm text-ink-secondary">
+						Nothing starred yet.
+					</p>
 				) : (
 					<div className="mt-8 flex flex-col gap-8">
 						{groups.map((group) => (
