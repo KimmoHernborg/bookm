@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -7,6 +6,7 @@ import { db } from "#/db/index.ts";
 import { bookmarks, categories, user } from "#/db/schema.ts";
 import { ensureInit } from "#/lib/server/init.ts";
 import { requireUser } from "#/lib/server/session.ts";
+import { createShowcaseToken } from "#/lib/server/showcase-token.ts";
 import { groupBookmarksByCategory } from "#/lib/shared/bookmark-grouping.ts";
 import { isShowcaseToken } from "#/lib/shared/showcase-token.ts";
 import { domainOf } from "#/lib/shared/url.ts";
@@ -107,7 +107,7 @@ export const getShowcaseStatus = createServerFn({ method: "GET" }).handler(
 export const generateShowcaseToken = createServerFn({ method: "POST" }).handler(
 	async () => {
 		const sessionUser = await requireUser();
-		const token = randomBytes(16).toString("base64url");
+		const token = createShowcaseToken();
 		db.update(user)
 			.set({ showcaseToken: token, updatedAt: new Date() })
 			.where(eq(user.id, sessionUser.id))
