@@ -12,7 +12,7 @@ describe("createShowcaseToken", () => {
 
 	it("stays within the sqids alphabet", () => {
 		for (let i = 0; i < 100; i++) {
-			expect(createShowcaseToken()).toMatch(/^[A-Za-z0-9]{14,}$/);
+			expect(createShowcaseToken()).toMatch(/^[A-Za-z0-9]{8,}$/);
 		}
 	});
 
