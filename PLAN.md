@@ -309,10 +309,11 @@ On startup, if the users table is empty and `ADMIN_EMAIL` is set, that user is
 created with `is_admin=true`.
 
 **Per-user settings (profile page):**
-- OpenRouter model slug (text input, free-form — not restricted to a known
-  list). Overrides the server default for that user's jobs.
-- OpenRouter base URL (optional — swap in an Ollama endpoint for local
-  inference).
+- Name, email, and password (via Better Auth).
+- Theme preference (light/dark/system), stored per browser.
+
+The LLM model is server-wide, not per-user — set via `OPENROUTER_DEFAULT_MODEL`
+(see below).
 
 **Environment variables (complete list):**
 
@@ -344,8 +345,8 @@ the user menu for admin users only. Sections:
 - **Stats** — per-user bookmark counts and total job counts by status.
 
 **Privacy.** Fetched pages never leave the user's instance for the LLM call
-itself. Allow choosing the OpenRouter model per user; allow swapping in a
-local Ollama URL.
+itself. The OpenRouter model is server-wide, set via
+`OPENROUTER_DEFAULT_MODEL`.
 
 **Rate limits.** Polite outbound fetches: per-host 1 RPS, custom user-agent.
 `robots.txt` is not consulted — this is a personal tool fetching on behalf of
