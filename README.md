@@ -44,9 +44,9 @@ worker. Saving a URL enqueues `fetch_and_extract` (polite fetch, Readability
 extraction, site-specific extractors for YouTube/GitHub), which enqueues
 `tag_bookmark` (one OpenRouter call with structured output → title, summary,
 description, 3–7 tags, content type, language, reading time). Search is
-SQLite FTS5 across title, summary, description, and tag names.
-
-Per-user model overrides (any OpenRouter slug) live in `/settings`.
+SQLite FTS5 across title, summary, description, and tag names. The model
+used is `OPENROUTER_DEFAULT_MODEL` (default `openrouter/free`), same for all
+users.
 
 ## Commands
 

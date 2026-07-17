@@ -68,7 +68,7 @@ This is the whole product, so design it carefully.
 
 **Controlled vocabulary, model can extend.** Keep a `tags` table per user. On each ingest, pass the user's top-N most-used tags into the system prompt and ask the model to reuse them where appropriate; only invent a new tag when none fit. Normalize on write: lowercase, kebab-case, singular, ASCII-fold. This prevents the `js / javascript / JS-language` drift problem.
 
-**One LLM call per bookmark, structured output.** Use OpenRouter with `openai/gpt-4o-mini` as the default model (override with `OPENROUTER_DEFAULT_MODEL` env var). Force JSON schema output:
+**One LLM call per bookmark, structured output.** Use OpenRouter with `openrouter/free` as the default model (override with `OPENROUTER_DEFAULT_MODEL` env var). Force JSON schema output:
 
 ```ts
 {
@@ -323,7 +323,7 @@ created with `is_admin=true`.
 | `ADMIN_EMAIL`             | —                          | Bootstraps first admin on empty DB             |
 | `REGISTRATION_OPEN`       | `false`                    | Allow public sign-up                           |
 | `OPENROUTER_API_KEY`      | —                          | Required for LLM calls                         |
-| `OPENROUTER_DEFAULT_MODEL`| `openai/gpt-4o-mini`       | Default model for all users                    |
+| `OPENROUTER_DEFAULT_MODEL`| `openrouter/free`          | Default model for all users                    |
 | `EXTRACTION_MAX_CHARS`    | `8000`                     | Max chars sent to LLM per bookmark             |
 | `JOB_CONCURRENCY`         | `3`                        | Max concurrent jobs in the worker              |
 
@@ -375,7 +375,7 @@ people running this for a team.
 
 ## 12. Key decisions (record)
 
-- **Default model.** `openai/gpt-4o-mini` via OpenRouter. Override with
+- **Default model.** `openrouter/free` via OpenRouter. Override with
   `OPENROUTER_DEFAULT_MODEL` env var. Re-evaluate quarterly.
 - **Tag taxonomy seed.** Empty — vocabulary grows per user organically.
 - **Sharing model.** Lists only — no per-bookmark public links. Bookmarks

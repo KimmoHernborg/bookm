@@ -24,7 +24,6 @@ export const user = sqliteTable(
 			.default(false),
 		image: text("image"),
 		isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
-		openrouterModel: text("openrouter_model"),
 		// null = public showcase disabled. Managed outside better-auth so the
 		// token never rides along in session payloads.
 		showcaseToken: text("showcase_token"),
