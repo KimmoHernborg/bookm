@@ -7,7 +7,6 @@ import {
 	bookmarkTags,
 	categories,
 	tags,
-	user,
 } from "#/db/schema.ts";
 import { env, extractionMaxCharsFor } from "#/lib/server/env.ts";
 import { extractFromUrl } from "#/lib/server/extraction/extract.ts";
@@ -35,18 +34,11 @@ function loadActiveBookmark(bookmarkId: number): Bookmark | null {
 	return bookmark;
 }
 
-function userModel(userId: string): { model: string } {
-	const [owner] = db.select().from(user).where(eq(user.id, userId)).all();
-	return {
-		model: owner?.openrouterModel || env.openrouterDefaultModel,
-	};
-}
-
 async function fetchAndExtract(payload: { bookmarkId: number }) {
 	const bookmark = loadActiveBookmark(payload.bookmarkId);
 	if (!bookmark) return;
 
-	const { model } = userModel(bookmark.userId);
+	const model = env.openrouterDefaultModel;
 	const result = await extractFromUrl(
 		bookmark.url,
 		extractionMaxCharsFor(model),
@@ -131,7 +123,7 @@ async function tagBookmark(payload: { bookmarkId: number }) {
 	const bookmark = loadActiveBookmark(payload.bookmarkId);
 	if (!bookmark) return;
 
-	const { model } = userModel(bookmark.userId);
+	const model = env.openrouterDefaultModel;
 	const userCategories = userCategoriesFor(bookmark.userId);
 	const output = await generateBookmarkMetadata({
 		url: bookmark.url,
@@ -206,7 +198,7 @@ async function categorizeBookmark(payload: { bookmarkId: number }) {
 	const userCategories = userCategoriesFor(bookmark.userId);
 	if (userCategories.length === 0) return;
 
-	const { model } = userModel(bookmark.userId);
+	const model = env.openrouterDefaultModel;
 	const tagNames = db
 		.select({ name: tags.name })
 		.from(bookmarkTags)

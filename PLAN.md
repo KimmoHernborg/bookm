@@ -68,7 +68,7 @@ This is the whole product, so design it carefully.
 
 **Controlled vocabulary, model can extend.** Keep a `tags` table per user. On each ingest, pass the user's top-N most-used tags into the system prompt and ask the model to reuse them where appropriate; only invent a new tag when none fit. Normalize on write: lowercase, kebab-case, singular, ASCII-fold. This prevents the `js / javascript / JS-language` drift problem.
 
-**One LLM call per bookmark, structured output.** Use OpenRouter with `openai/gpt-4o-mini` as the default model (override with `OPENROUTER_DEFAULT_MODEL` env var). Force JSON schema output:
+**One LLM call per bookmark, structured output.** Use OpenRouter with `openrouter/free` as the default model (override with `OPENROUTER_DEFAULT_MODEL` env var). Force JSON schema output:
 
 ```ts
 {
@@ -309,10 +309,11 @@ On startup, if the users table is empty and `ADMIN_EMAIL` is set, that user is
 created with `is_admin=true`.
 
 **Per-user settings (profile page):**
-- OpenRouter model slug (text input, free-form — not restricted to a known
-  list). Overrides the server default for that user's jobs.
-- OpenRouter base URL (optional — swap in an Ollama endpoint for local
-  inference).
+- Name, email, and password (via Better Auth).
+- Theme preference (light/dark/system), stored per browser.
+
+The LLM model is server-wide, not per-user — set via `OPENROUTER_DEFAULT_MODEL`
+(see below).
 
 **Environment variables (complete list):**
 
@@ -323,7 +324,7 @@ created with `is_admin=true`.
 | `ADMIN_EMAIL`             | —                          | Bootstraps first admin on empty DB             |
 | `REGISTRATION_OPEN`       | `false`                    | Allow public sign-up                           |
 | `OPENROUTER_API_KEY`      | —                          | Required for LLM calls                         |
-| `OPENROUTER_DEFAULT_MODEL`| `openai/gpt-4o-mini`       | Default model for all users                    |
+| `OPENROUTER_DEFAULT_MODEL`| `openrouter/free`          | Default model for all users                    |
 | `EXTRACTION_MAX_CHARS`    | `8000`                     | Max chars sent to LLM per bookmark             |
 | `JOB_CONCURRENCY`         | `3`                        | Max concurrent jobs in the worker              |
 
@@ -344,8 +345,8 @@ the user menu for admin users only. Sections:
 - **Stats** — per-user bookmark counts and total job counts by status.
 
 **Privacy.** Fetched pages never leave the user's instance for the LLM call
-itself. Allow choosing the OpenRouter model per user; allow swapping in a
-local Ollama URL.
+itself. The OpenRouter model is server-wide, set via
+`OPENROUTER_DEFAULT_MODEL`.
 
 **Rate limits.** Polite outbound fetches: per-host 1 RPS, custom user-agent.
 `robots.txt` is not consulted — this is a personal tool fetching on behalf of
@@ -375,7 +376,7 @@ people running this for a team.
 
 ## 12. Key decisions (record)
 
-- **Default model.** `openai/gpt-4o-mini` via OpenRouter. Override with
+- **Default model.** `openrouter/free` via OpenRouter. Override with
   `OPENROUTER_DEFAULT_MODEL` env var. Re-evaluate quarterly.
 - **Tag taxonomy seed.** Empty — vocabulary grows per user organically.
 - **Sharing model.** Lists only — no per-bookmark public links. Bookmarks

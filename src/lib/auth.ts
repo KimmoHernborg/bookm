@@ -69,11 +69,6 @@ export const auth = betterAuth({
 				defaultValue: false,
 				input: false,
 			},
-			openrouterModel: {
-				type: "string",
-				required: false,
-				input: false,
-			},
 		},
 	},
 	plugins: [tanstackStartCookies()],

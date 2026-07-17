@@ -13,7 +13,7 @@ export const env = {
 	registrationOpen: process.env.REGISTRATION_OPEN === "true",
 	openrouterApiKey: process.env.OPENROUTER_API_KEY,
 	openrouterDefaultModel:
-		process.env.OPENROUTER_DEFAULT_MODEL ?? "openai/gpt-4o-mini",
+		process.env.OPENROUTER_DEFAULT_MODEL ?? "openrouter/free",
 	extractionMaxChars: intEnv(process.env.EXTRACTION_MAX_CHARS, 8000),
 	jobConcurrency: intEnv(process.env.JOB_CONCURRENCY, 3),
 };
