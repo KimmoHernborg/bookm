@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { env } from "#/lib/server/env.ts";
+import { env, oidc } from "#/lib/server/env.ts";
 import { getSessionUser } from "#/lib/server/session.ts";
 
 // Used by route guards and the login page; also the first code that runs
@@ -11,6 +11,9 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(
 		return {
 			user,
 			registrationOpen: env.registrationOpen,
+			oidc: oidc
+				? { providerId: oidc.providerId, providerName: oidc.providerName }
+				: null,
 		};
 	},
 );

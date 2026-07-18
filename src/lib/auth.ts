@@ -1,9 +1,11 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { genericOAuth } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
 import { db } from "#/db/index.ts";
 import * as schema from "#/db/schema.ts";
+import { oidc } from "#/lib/server/env.ts";
 import { log } from "#/lib/server/log.ts";
 
 export const auth = betterAuth({
@@ -71,5 +73,42 @@ export const auth = betterAuth({
 			},
 		},
 	},
-	plugins: [tanstackStartCookies()],
+	account: {
+		accountLinking: {
+			// The OIDC provider (PocketID/Authelia/Authentik, if configured) is
+			// trusted to verify email ownership, so a sign-in with a matching
+			// email links to the existing user instead of erroring. Only
+			// applies when OIDC is actually enabled.
+			trustedProviders: oidc ? [oidc.providerId] : [],
+		},
+	},
+	plugins: [
+		tanstackStartCookies(),
+		// Optional generic OIDC provider for self-hosters (see env.ts). Fully
+		// inert — no plugin, no route, no button — unless OIDC_ISSUER_URL,
+		// OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET are all set.
+		...(oidc
+			? [
+					genericOAuth({
+						config: [
+							{
+								providerId: oidc.providerId,
+								discoveryUrl: oidc.discoveryUrl,
+								issuer: oidc.issuer,
+								clientId: oidc.clientId,
+								clientSecret: oidc.clientSecret,
+								scopes: oidc.scopes,
+								pkce: true,
+								// user.name is NOT NULL (src/db/schema.ts); guarantee a
+								// value even if the IdP omits `name`.
+								mapProfileToUser: (profile) => ({
+									name:
+										profile.name ?? profile.preferred_username ?? profile.email,
+								}),
+							},
+						],
+					}),
+				]
+			: []),
+	],
 });

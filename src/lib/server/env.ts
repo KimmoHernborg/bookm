@@ -18,6 +18,32 @@ export const env = {
 	jobConcurrency: intEnv(process.env.JOB_CONCURRENCY, 3),
 };
 
+// Optional generic OIDC provider (e.g. PocketID, Authelia, Authentik) for
+// self-hosters who want SSO. Inert unless all three required vars are set —
+// no auth.ts branching happens otherwise.
+const oidcIssuer = process.env.OIDC_ISSUER_URL?.trim().replace(/\/$/, "");
+const oidcClientId = process.env.OIDC_CLIENT_ID?.trim();
+const oidcClientSecret = process.env.OIDC_CLIENT_SECRET?.trim();
+
+export const oidcEnabled = Boolean(
+	oidcIssuer && oidcClientId && oidcClientSecret,
+);
+
+export const oidc = oidcEnabled
+	? {
+			issuer: oidcIssuer as string,
+			// PocketID / Authelia / Authentik all expose OIDC discovery here.
+			discoveryUrl: `${oidcIssuer}/.well-known/openid-configuration`,
+			clientId: oidcClientId as string,
+			clientSecret: oidcClientSecret as string,
+			providerId: process.env.OIDC_PROVIDER_ID?.trim() || "oidc",
+			providerName: process.env.OIDC_PROVIDER_NAME?.trim() || "Single Sign-On",
+			scopes: (process.env.OIDC_SCOPES?.trim() || "openid profile email").split(
+				/\s+/,
+			),
+		}
+	: null;
+
 // Per-model override for extraction length. The env var is the
 // floor/default; entries here override per model.
 export const EXTRACTION_MAX_CHARS_BY_MODEL: Record<string, number> = {

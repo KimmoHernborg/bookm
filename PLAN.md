@@ -59,8 +59,8 @@ Everything else (extension, sharing, mobile) is post-MVP.
   bookmarks to "Untagged" — delete is never blocked.
 - Export to Netscape HTML, JSON, CSV.
 - Starred links to pin favorites to the main view.
-- Multi-user with Better Auth, including OIDC for self-hosters who want to plug
-  PocketID / Authelia / Authentik in.
+- Multi-user with Better Auth, including optional OIDC for self-hosters who
+  want to plug PocketID / Authelia / Authentik in.
 
 ## 5. AI tagging design
 
@@ -215,7 +215,7 @@ Each bookmark in the list view has five inline icon actions:
 | Framework          | **TanStack Start**                                    | Already scaffolded; pre-1.0, accept some churn.                                                                                                           |
 | UI                 | **React + Tailwind + Shadcn UI**                      | Already scaffolded.                                                                                                                                       |
 | DB                 | **SQLite (WAL) + Drizzle**                            | Already scaffolded. Add FTS5 virtual table.                                                                                                               |
-| Auth               | **Better Auth**                                       | Already scaffolded. Email + OIDC plugin for self-hosters. PocketID becomes one of several OIDC providers, not a hard dependency.                          |
+| Auth               | **Better Auth**                                       | Email + password, plus an optional generic OIDC provider (`genericOAuth` plugin) for self-hosters. PocketID is one of several possible OIDC providers, not a hard dependency; inert unless `OIDC_*` env vars are set. |
 | Background jobs    | **In-process SQLite-backed queue**                    | A `jobs` table + a worker loop in the same Bun process. Persistence, retries, and visibility for free, no Redis. Drop in BullMQ only if scale demands it. |
 | LLM                | **OpenRouter**                                        | Default to a cheap model; allow override per user. Optional Ollama base URL for fully local self-hosters.                                                 |
 | Content extraction | **Readability (`@mozilla/readability` + `linkedom`)** | Plus site-specific extractors for YouTube / GitHub / arXiv / Reddit.                                                                                      |
@@ -296,8 +296,13 @@ dedup by `(user_id, url_canonical)`. No tracking param stripping.
 discriminated union — one variant per job `kind`. Every handler receives a
 fully-typed payload; no `any`.
 
-**Auth:** email + password only for MVP (no magic links, no OAuth). Better Auth
-handles session management. Magic links and OIDC providers come in Phase 2.
+**Auth:** email + password for MVP, plus an optional generic OIDC provider
+(no magic links). Better Auth handles session management. OIDC is enabled only
+when `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` are all set;
+new users are provisioned on first OIDC sign-in regardless of
+`REGISTRATION_OPEN` (the IdP is treated as the registration gate). Magic links
+remain out of scope. Accounts with a matching, provider-verified email are
+auto-linked to an existing email/password user rather than erroring.
 
 **Registration:** controlled by `REGISTRATION_OPEN` env var (default `false`).
 When false, only admin can create accounts via the `/admin` Users section.
@@ -327,6 +332,12 @@ The LLM model is server-wide, not per-user — set via `OPENROUTER_DEFAULT_MODEL
 | `OPENROUTER_DEFAULT_MODEL`| `openrouter/free`          | Default model for all users                    |
 | `EXTRACTION_MAX_CHARS`    | `8000`                     | Max chars sent to LLM per bookmark             |
 | `JOB_CONCURRENCY`         | `3`                        | Max concurrent jobs in the worker              |
+| `OIDC_ISSUER_URL`         | —                          | Optional. Base URL of an OIDC provider (PocketID/Authelia/Authentik). Enables SSO when set together with the two vars below |
+| `OIDC_CLIENT_ID`          | —                          | Optional. OIDC client ID                       |
+| `OIDC_CLIENT_SECRET`      | —                          | Optional. OIDC client secret                   |
+| `OIDC_PROVIDER_ID`        | `oidc`                     | Optional. Provider id used in callback URL and account linking |
+| `OIDC_PROVIDER_NAME`      | `Single Sign-On`           | Optional. Label shown on the login button      |
+| `OIDC_SCOPES`             | `openid profile email`     | Optional. Space-separated OIDC scopes to request |
 
 ## 10. Operational concerns
 
@@ -361,9 +372,10 @@ enabled, FTS5 wired, basic UI with empty states. Admin bootstrap via
 **Phase 1 — MVP.** Paste-URL + Netscape import → fetch → extract → LLM tag →
 search/list/filter UI → Docker. Multi-user from day one.
 
-**Phase 2 — Extension + OIDC.** OIDC plugin doc'd for self-hosters
-(PocketID / Authelia / Authentik). WXT extension for Chrome + Firefox with
-one-click save. PWA share target.
+**Phase 2 — Extension.** Optional OIDC (generic `genericOAuth` provider,
+doc'd for PocketID / Authelia / Authentik) is implemented — see §9 Auth.
+Remaining: WXT extension for Chrome + Firefox with one-click save, PWA share
+target.
 
 **Phase 3 — Quality of life.** Tag merge/rename/color, exporter, bulk operations, keyboard shortcuts.
 
@@ -382,7 +394,8 @@ people running this for a team.
 - **Sharing model.** Lists only — no per-bookmark public links. Bookmarks
   inherit visibility from their list(s). Post-MVP (Phase 4).
 - **License.** MIT.
-- **Auth method.** Email + password only for MVP. Magic links and OIDC in Phase 2.
+- **Auth method.** Email + password, plus optional generic OIDC (implemented,
+  Phase 2). Magic links remain out of scope.
 - **Registration.** Closed by default (`REGISTRATION_OPEN=false`). Admin creates
   users via `/admin`.
 - **Read/unread tracking.** Not implemented — removed from scope entirely.

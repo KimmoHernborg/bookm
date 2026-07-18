@@ -13,19 +13,23 @@ export const Route = createFileRoute("/login")({
 	beforeLoad: async () => {
 		const state = await getAuthState();
 		if (state.user) throw redirect({ to: "/" });
-		return { registrationOpen: state.registrationOpen };
+		return { registrationOpen: state.registrationOpen, oidc: state.oidc };
 	},
-	loader: ({ context }) => ({ registrationOpen: context.registrationOpen }),
+	loader: ({ context }) => ({
+		registrationOpen: context.registrationOpen,
+		oidc: context.oidc,
+	}),
 	component: LoginPage,
 });
 
 function LoginPage() {
-	const { registrationOpen } = Route.useLoaderData();
+	const { registrationOpen, oidc } = Route.useLoaderData();
 	const navigate = useNavigate();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [ssoBusy, setSsoBusy] = useState(false);
 
 	async function onSubmit(event: React.FormEvent) {
 		event.preventDefault();
@@ -40,6 +44,22 @@ function LoginPage() {
 		void navigate({ to: "/" });
 	}
 
+	async function onSso() {
+		if (!oidc) return;
+		setSsoBusy(true);
+		setError(null);
+		const result = await authClient.signIn.oauth2({
+			providerId: oidc.providerId,
+			callbackURL: "/",
+		});
+		if (result.error) {
+			setSsoBusy(false);
+			setError(result.error.message ?? "Sign-in failed");
+		}
+		// On success the browser is redirected to the provider, so no further
+		// state update is needed here.
+	}
+
 	return (
 		<main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 sm:px-6">
 			<h1 className="text-2xl font-semibold tracking-tight logo">
@@ -49,7 +69,29 @@ function LoginPage() {
 			<p className="mt-1 text-xs text-ink-secondary">
 				AI-tagged bookmarking for tab hoarders.
 			</p>
-			<form onSubmit={onSubmit} className="mt-10 flex flex-col gap-4">
+			{oidc ? (
+				<>
+					<button
+						type="button"
+						onClick={onSso}
+						disabled={ssoBusy}
+						className="mt-10 border border-hairline bg-paper px-3 py-2 text-[15px] font-medium hover:bg-surface disabled:opacity-60"
+					>
+						{ssoBusy ? "Redirecting…" : `Sign in with ${oidc.providerName}`}
+					</button>
+					<div className="mt-6 flex items-center gap-3 text-xs text-ink-secondary">
+						<span className="h-px flex-1 bg-hairline" />
+						or
+						<span className="h-px flex-1 bg-hairline" />
+					</div>
+				</>
+			) : null}
+			<form
+				onSubmit={onSubmit}
+				className={
+					oidc ? "mt-6 flex flex-col gap-4" : "mt-10 flex flex-col gap-4"
+				}
+			>
 				<label className="flex flex-col gap-1">
 					<span className="text-xs text-ink-secondary">Email</span>
 					<input
