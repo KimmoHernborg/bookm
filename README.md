@@ -37,6 +37,37 @@ Required configuration in `.env.local`:
 Registration is closed by default (`REGISTRATION_OPEN=false`); the admin
 creates users from `/admin`.
 
+## Optional: OIDC / SSO
+
+Bookm can delegate sign-in to any OIDC provider — PocketID, Authelia,
+Authentik, etc. — instead of (or alongside) email/password. It's off by
+default and only activates once all three required variables are set:
+
+```bash
+# .env.local
+OIDC_ISSUER_URL=https://idp.example.com
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET=...
+```
+
+Setup:
+
+1. In your IdP, register a new OIDC client with redirect URI:
+   `${BETTER_AUTH_URL}/api/auth/oauth2/callback/oidc` (e.g.
+   `http://localhost:3000/api/auth/oauth2/callback/oidc`).
+2. Copy the client ID/secret and the IdP's base URL into `OIDC_CLIENT_ID`,
+   `OIDC_CLIENT_SECRET`, and `OIDC_ISSUER_URL`.
+3. Restart Bookm. A "Sign in with…" button appears on `/login` and `/signup`.
+
+Optional variables: `OIDC_PROVIDER_ID` (default `oidc`, part of the callback
+URL), `OIDC_PROVIDER_NAME` (button label, default "Single Sign-On"), and
+`OIDC_SCOPES` (default `openid profile email`).
+
+New users are provisioned on first OIDC sign-in regardless of
+`REGISTRATION_OPEN` — the IdP is treated as the registration gate. Signing in
+via OIDC with an email matching an existing account links the two rather than
+erroring.
+
 ## How it works
 
 A single process runs the web app (TanStack Start) and a SQLite-backed job
