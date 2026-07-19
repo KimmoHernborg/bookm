@@ -8,11 +8,12 @@ import {
 	bookmarks,
 	bookmarkTags,
 	categories,
+	domainFavicons,
 	tags,
 } from "#/db/schema.ts";
 import { searchBookmarkIds, syncBookmarkFts } from "#/lib/server/fts.ts";
 import { resolveTagIds } from "#/lib/server/jobs/handlers.ts";
-import { enqueueJob } from "#/lib/server/jobs/queue.ts";
+import { enqueueFaviconFetch, enqueueJob } from "#/lib/server/jobs/queue.ts";
 import { requireUser } from "#/lib/server/session.ts";
 import {
 	type CategoryGroup,
@@ -29,6 +30,8 @@ export type BookmarkListItem = {
 	status: BookmarkStatus;
 	starred: boolean;
 	domain: string;
+	// 16x16 PNG data URL; null when not (yet) fetched for this domain
+	favicon: string | null;
 	createdAt: number;
 	tags: Array<string>;
 	categoryId: number | null;
@@ -140,20 +143,44 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 			tagsByBookmark.set(row.bookmarkId, list);
 		}
 
-		const items: Array<BookmarkListItem> = filtered.map((r) => ({
-			id: r.bookmark.id,
-			url: r.bookmark.url,
-			title: r.bookmark.title,
-			summary: r.bookmark.summary,
-			description: r.bookmark.description,
-			status: r.bookmark.status,
-			starred: r.bookmark.starred,
-			domain: domainOf(r.bookmark.url),
-			createdAt: r.bookmark.createdAt.getTime(),
-			tags: (tagsByBookmark.get(r.bookmark.id) ?? []).sort(),
-			categoryId: r.bookmark.categoryId,
-			category: r.categoryName,
-		}));
+		const domains = [...new Set(filtered.map((r) => domainOf(r.bookmark.url)))];
+		const faviconByDomain = new Map(
+			(domains.length > 0
+				? db
+						.select({
+							domain: domainFavicons.domain,
+							dataUrl: domainFavicons.dataUrl,
+						})
+						.from(domainFavicons)
+						.where(
+							and(
+								inArray(domainFavicons.domain, domains),
+								eq(domainFavicons.status, "ok"),
+							),
+						)
+						.all()
+				: []
+			).map((r) => [r.domain, r.dataUrl]),
+		);
+
+		const items: Array<BookmarkListItem> = filtered.map((r) => {
+			const domain = domainOf(r.bookmark.url);
+			return {
+				id: r.bookmark.id,
+				url: r.bookmark.url,
+				title: r.bookmark.title,
+				summary: r.bookmark.summary,
+				description: r.bookmark.description,
+				status: r.bookmark.status,
+				starred: r.bookmark.starred,
+				domain,
+				favicon: faviconByDomain.get(domain) ?? null,
+				createdAt: r.bookmark.createdAt.getTime(),
+				tags: (tagsByBookmark.get(r.bookmark.id) ?? []).sort(),
+				categoryId: r.bookmark.categoryId,
+				category: r.categoryName,
+			};
+		});
 
 		const groups = groupBookmarksByCategory(items);
 
@@ -271,6 +298,7 @@ export const addBookmark = createServerFn({ method: "POST" })
 			if (existing.status !== "processed") {
 				enqueueJob({ kind: "fetch_and_extract", bookmarkId: existing.id });
 			}
+			enqueueFaviconFetch(rawUrl);
 			syncBookmarkFts(existing.id);
 			return { result: "created" as const, id: existing.id };
 		}
@@ -281,8 +309,42 @@ export const addBookmark = createServerFn({ method: "POST" })
 			.returning({ id: bookmarks.id })
 			.all();
 		enqueueJob({ kind: "fetch_and_extract", bookmarkId: created.id });
+		enqueueFaviconFetch(rawUrl);
 		return { result: "created" as const, id: created.id };
 	});
+
+// Enqueue one fetch_favicon job per distinct domain among the user's
+// active bookmarks that has no successful favicon yet. Re-runnable:
+// fresh-failed domains get enqueued too but the handler's TTL decides
+// whether to actually retry, so the button doubles as "retry failures".
+export const backfillFavicons = createServerFn({ method: "POST" }).handler(
+	async () => {
+		const user = await requireUser();
+		const rows = db
+			.select({ url: bookmarks.url })
+			.from(bookmarks)
+			.where(and(eq(bookmarks.userId, user.id), isNull(bookmarks.deletedAt)))
+			.all();
+		const done = new Set(
+			db
+				.select({ domain: domainFavicons.domain })
+				.from(domainFavicons)
+				.where(eq(domainFavicons.status, "ok"))
+				.all()
+				.map((r) => r.domain),
+		);
+		// domain -> one representative page URL to parse for icon links
+		const byDomain = new Map<string, string>();
+		for (const { url } of rows) {
+			const domain = domainOf(url);
+			if (!done.has(domain) && !byDomain.has(domain)) byDomain.set(domain, url);
+		}
+		for (const [domain, pageUrl] of byDomain) {
+			enqueueJob({ kind: "fetch_favicon", domain, pageUrl });
+		}
+		return { enqueued: byDomain.size };
+	},
+);
 
 async function ownedBookmark(userId: string, bookmarkId: number) {
 	const [bookmark] = db
@@ -432,6 +494,7 @@ export const updateBookmark = createServerFn({ method: "POST" })
 		});
 		if (urlChanged) {
 			enqueueJob({ kind: "fetch_and_extract", bookmarkId: data.id });
+			enqueueFaviconFetch(rawUrl);
 		}
 		syncBookmarkFts(data.id);
 	});

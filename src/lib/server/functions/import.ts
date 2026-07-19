@@ -7,7 +7,7 @@ import { bookmarks, bookmarkTags } from "#/db/schema.ts";
 import { syncBookmarkFts } from "#/lib/server/fts.ts";
 import { parseNetscapeBookmarks } from "#/lib/server/import/netscape.ts";
 import { resolveTagIds } from "#/lib/server/jobs/handlers.ts";
-import { enqueueJob } from "#/lib/server/jobs/queue.ts";
+import { enqueueFaviconFetch, enqueueJob } from "#/lib/server/jobs/queue.ts";
 import { log } from "#/lib/server/log.ts";
 import { requireUser } from "#/lib/server/session.ts";
 import { canonicalizeUrl } from "#/lib/shared/url.ts";
@@ -99,6 +99,7 @@ export const importNetscape = createServerFn({ method: "POST" })
 					linkFolderTags(tx, prior.id, entry.folders);
 					syncBookmarkFts(prior.id);
 					enqueueJob({ kind: "fetch_and_extract", bookmarkId: prior.id });
+					enqueueFaviconFetch(entry.url);
 				});
 				existing.set(urlCanonical, { id: prior.id, deletedAt: null });
 				imported++;
@@ -119,6 +120,7 @@ export const importNetscape = createServerFn({ method: "POST" })
 				linkFolderTags(tx, created.id, entry.folders);
 				syncBookmarkFts(created.id);
 				enqueueJob({ kind: "fetch_and_extract", bookmarkId: created.id });
+				enqueueFaviconFetch(entry.url);
 				return created.id;
 			});
 			existing.set(urlCanonical, { id: newId, deletedAt: null });

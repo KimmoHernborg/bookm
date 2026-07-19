@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { CategoryList } from "#/components/category-list.tsx";
 import { ThemeModeSwitcher } from "#/components/theme-mode-switcher.tsx";
 import { authClient } from "#/lib/auth-client.ts";
+import { backfillFavicons } from "#/lib/server/functions/bookmarks.ts";
 import {
 	backfillCategories,
 	createCategory,
@@ -43,6 +44,8 @@ function SettingsView() {
 			<AccountSection />
 
 			<CategoriesSection />
+
+			<FaviconsSection />
 
 			<ShowcaseSection />
 		</main>
@@ -366,6 +369,59 @@ function CategoriesSection() {
 						{backfillResult === 0
 							? "Nothing to categorize."
 							: `Enqueued ${backfillResult} bookmark${backfillResult === 1 ? "" : "s"}.`}
+					</span>
+				) : null}
+			</div>
+		</section>
+	);
+}
+
+function FaviconsSection() {
+	const [result, setResult] = useState<number | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	async function onBackfill() {
+		setBusy(true);
+		setError(null);
+		try {
+			const res = await backfillFavicons();
+			setResult(res.enqueued);
+		} catch (err) {
+			setResult(null);
+			setError(err instanceof Error ? err.message : "Something went wrong");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<section className="mt-12 max-w-md">
+			<h2 className="text-[11px] font-semibold tracking-widest uppercase text-ink-secondary">
+				Favicons
+			</h2>
+			<p className="mt-1 mb-2 text-xs text-ink-muted">
+				Site icons shown next to bookmarks. New bookmarks get one automatically;
+				this fetches them for existing ones.
+			</p>
+			<div className="mt-4 flex items-center gap-3">
+				<button
+					type="button"
+					disabled={busy}
+					onClick={() => void onBackfill()}
+					className="w-fit border border-hairline px-3 py-1.5 text-[13px] text-ink-secondary hover:text-ink disabled:opacity-60"
+				>
+					Fetch favicons for existing bookmarks
+				</button>
+				{error !== null ? (
+					<span role="alert" className="text-xs text-ink-muted">
+						{error}
+					</span>
+				) : result !== null ? (
+					<span className="text-xs text-ink-muted">
+						{result === 0
+							? "Nothing to fetch."
+							: `Enqueued ${result} domain${result === 1 ? "" : "s"}.`}
 					</span>
 				) : null}
 			</div>
