@@ -64,6 +64,13 @@
       "when": 1784304704754,
       "tag": "0008_last_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784458501431,
+      "tag": "0009_fair_eternity",
+      "breakpoints": true
     }
   ]
 }

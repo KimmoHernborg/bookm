@@ -238,6 +238,24 @@ export const bookmarkTags = sqliteTable(
 	],
 );
 
+export const FAVICON_STATUSES = ["ok", "failed"] as const;
+export type FaviconStatus = (typeof FAVICON_STATUSES)[number];
+
+// One favicon per domain (domainOf() output, www-stripped), shared across
+// all users' bookmarks. Global by design: a favicon is public site
+// metadata, not user data.
+export const domainFavicons = sqliteTable("domain_favicons", {
+	domain: text("domain").primaryKey(),
+	// data:image/png;base64,... — 16x16 PNG. Null when status = 'failed'.
+	dataUrl: text("data_url"),
+	// 'failed' rows suppress refetch loops for a TTL window instead of
+	// retrying on every new bookmark for that domain.
+	status: text("status").$type<FaviconStatus>().notNull(),
+	fetchedAt: integer("fetched_at", { mode: "timestamp" })
+		.notNull()
+		.default(sql`(unixepoch())`),
+});
+
 export const JOB_STATUSES = [
 	"pending",
 	"running",
@@ -272,6 +290,7 @@ export const jobs = sqliteTable(
 );
 
 export type Bookmark = typeof bookmarks.$inferSelect;
+export type DomainFavicon = typeof domainFavicons.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type DefaultCategory = typeof defaultCategories.$inferSelect;
