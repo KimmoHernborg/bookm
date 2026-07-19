@@ -1,7 +1,11 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
-import { iconCandidatesFromHtml, toPngDataUrl } from "./favicon.ts";
+import {
+	iconCandidatesFromHtml,
+	isPublicIconUrl,
+	toPngDataUrl,
+} from "./favicon.ts";
 
 const BASE = "https://example.com/blog/post";
 
@@ -117,6 +121,50 @@ async function expectPng16(dataUrl: string) {
 	expect(meta.width).toBe(16);
 	expect(meta.height).toBe(16);
 }
+
+describe("isPublicIconUrl", () => {
+	it("rejects loopback, LAN, link-local, and CGNAT IP literals", async () => {
+		for (const url of [
+			"http://127.0.0.1/favicon.ico",
+			"http://10.0.0.5/favicon.ico",
+			"http://172.16.0.1/favicon.ico",
+			"http://192.168.1.1/favicon.ico",
+			"http://169.254.169.254/latest/meta-data/",
+			"http://100.64.0.1/favicon.ico",
+			"http://0.0.0.0/favicon.ico",
+			"http://[::1]/favicon.ico",
+			"http://[fd00::1]/favicon.ico",
+			"http://[fe80::1]/favicon.ico",
+			"http://[::ffff:192.168.0.1]/favicon.ico",
+		]) {
+			expect(await isPublicIconUrl(url), url).toBe(false);
+		}
+	});
+
+	it("rejects blocked hostnames and non-http schemes", async () => {
+		for (const url of [
+			"http://localhost/favicon.ico",
+			"http://foo.localhost/favicon.ico",
+			"http://printer.local/favicon.ico",
+			"http://db.internal/favicon.ico",
+			"http://nas.home.arpa/favicon.ico",
+			"ftp://example.com/favicon.ico",
+			"file:///etc/passwd",
+			"not a url",
+		]) {
+			expect(await isPublicIconUrl(url), url).toBe(false);
+		}
+	});
+
+	it("accepts public IP literals without a DNS lookup", async () => {
+		expect(await isPublicIconUrl("https://93.184.216.34/favicon.ico")).toBe(
+			true,
+		);
+		expect(await isPublicIconUrl("https://[2606:4700::6810:84e5]/i.png")).toBe(
+			true,
+		);
+	});
+});
 
 describe("toPngDataUrl", () => {
 	it("resizes a png to a 16x16 png data url", async () => {
