@@ -21,8 +21,11 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
 			bookmark_url: string | null;
 			user_email: string | null;
 		}>(sql`
+			-- fetch_favicon jobs carry no bookmarkId; fall back to their pageUrl
+			-- so the admin table still shows which site is being processed.
 			SELECT j.id, j.kind, j.status, j.attempts, j.last_error, j.created_at,
-				b.url AS bookmark_url, u.email AS user_email
+				COALESCE(b.url, json_extract(j.payload_json, '$.pageUrl')) AS bookmark_url,
+				u.email AS user_email
 			FROM jobs j
 			LEFT JOIN bookmarks b ON b.id = json_extract(j.payload_json, '$.bookmarkId')
 			LEFT JOIN user u ON u.id = b.user_id
