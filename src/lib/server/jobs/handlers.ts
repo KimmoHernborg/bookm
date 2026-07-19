@@ -6,10 +6,12 @@ import {
 	bookmarks,
 	bookmarkTags,
 	categories,
+	domainFavicons,
 	tags,
 } from "#/db/schema.ts";
 import { env, extractionMaxCharsFor } from "#/lib/server/env.ts";
 import { extractFromUrl } from "#/lib/server/extraction/extract.ts";
+import { fetchFaviconForPage } from "#/lib/server/extraction/favicon.ts";
 import { syncBookmarkFts } from "#/lib/server/fts.ts";
 import {
 	generateBookmarkMetadata,
@@ -232,6 +234,47 @@ async function categorizeBookmark(payload: { bookmarkId: number }) {
 	});
 }
 
+// Failed favicon lookups are retried at most once per TTL window, so a
+// hot domain isn't re-fetched on every new bookmark for it.
+const FAVICON_FAILED_RETRY_DAYS = 7;
+
+async function fetchFavicon(payload: { domain: string; pageUrl: string }) {
+	const [existing] = db
+		.select()
+		.from(domainFavicons)
+		.where(eq(domainFavicons.domain, payload.domain))
+		.all();
+	// ok rows are permanent (until a future refresh feature); failed rows
+	// suppress refetch for the TTL.
+	if (existing?.status === "ok") return;
+	if (
+		existing &&
+		Date.now() - existing.fetchedAt.getTime() <
+			FAVICON_FAILED_RETRY_DAYS * 24 * 60 * 60 * 1000
+	) {
+		return;
+	}
+
+	// Page-level network errors throw -> worker retry with backoff. A
+	// resolvable page with no usable icon returns "none" -> durable
+	// failed row, job completes.
+	const result = await fetchFaviconForPage(payload.pageUrl);
+
+	const row = {
+		dataUrl: result.kind === "ok" ? result.dataUrl : null,
+		status: result.kind === "ok" ? ("ok" as const) : ("failed" as const),
+		fetchedAt: new Date(),
+	};
+	db.insert(domainFavicons)
+		.values({ domain: payload.domain, ...row })
+		.onConflictDoUpdate({ target: domainFavicons.domain, set: row })
+		.run();
+	log.info("favicon_fetched", {
+		domain: payload.domain,
+		ok: result.kind === "ok",
+	});
+}
+
 export const handlers: {
 	[K in JobPayload["kind"]]: (
 		payload: Extract<JobPayload, { kind: K }>,
@@ -240,11 +283,14 @@ export const handlers: {
 	fetch_and_extract: fetchAndExtract,
 	tag_bookmark: tagBookmark,
 	categorize_bookmark: categorizeBookmark,
+	fetch_favicon: fetchFavicon,
 };
 
 // Called by the worker when a job has exhausted its retries: surface the
 // failure on the bookmark itself so the UI can show it inline.
 export function onJobExhausted(payload: JobPayload) {
+	// Only bookmark-scoped jobs surface exhaustion on a bookmark row.
+	if (!("bookmarkId" in payload)) return;
 	const bookmark = loadActiveBookmark(payload.bookmarkId);
 	// Never clobber a final state: "broken" (URL unreachable) and "processed"
 	// (succeeded) must survive a later/stale job exhausting its retries.
