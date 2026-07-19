@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
 	Archive,
 	ArchiveRestore,
+	BookHeart,
 	Link as LinkIcon,
 	Pencil,
 	Star,
@@ -130,17 +131,20 @@ export function BookmarkRow({
 		<li className="group -mx-2 px-2 py-1 hover:bg-surface">
 			<div className="flex items-baseline gap-2 max-[959px]:items-center">
 				{item.favicon ? (
+					// Light backing plate keeps dark favicons visible in dark mode.
 					<img
 						src={item.favicon}
 						alt=""
 						aria-hidden="true"
 						width={16}
 						height={16}
-						className="h-4 w-4 shrink-0 self-center"
+						className="h-4 w-4 shrink-0 self-center rounded-[3px] bg-white p-px"
 					/>
 				) : (
-					// Empty spacer keeps titles aligned across rows.
-					<span aria-hidden="true" className="h-4 w-4 shrink-0" />
+					<BookHeart
+						aria-hidden="true"
+						className="h-4 w-4 shrink-0 self-center text-ink-muted"
+					/>
 				)}
 				<span className="relative min-w-0 flex-1 truncate">
 					<a
