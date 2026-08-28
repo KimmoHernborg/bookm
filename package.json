@@ -1,6 +1,6 @@
 {
   "name": "bookm",
-  "private": true,
+  "license": "MIT",
   "type": "module",
   "imports": {
     "#/*": "./src/*"
