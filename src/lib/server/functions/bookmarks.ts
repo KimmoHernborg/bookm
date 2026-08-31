@@ -259,8 +259,23 @@ export const getBookmarksPage = createServerFn({ method: "GET" })
 	});
 
 export const addBookmark = createServerFn({ method: "POST" })
-	.inputValidator((data: { url: string }) =>
-		z.object({ url: z.string().trim() }).parse(data),
+	.inputValidator(
+		(data: {
+			url: string;
+			skipAi?: boolean;
+			title?: string;
+			tags?: Array<string>;
+			categoryId?: number | null;
+		}) =>
+			z
+				.object({
+					url: z.string().trim(),
+					skipAi: z.boolean().default(false),
+					title: z.string().trim().max(500).default(""),
+					tags: z.array(z.string()).max(30).default([]),
+					categoryId: z.number().int().nullable().default(null),
+				})
+				.parse(data),
 	)
 	.handler(async ({ data }) => {
 		const user = await requireUser();
@@ -271,6 +286,30 @@ export const addBookmark = createServerFn({ method: "POST" })
 			return { result: "invalid" as const };
 		}
 		const urlCanonical = canonicalizeUrl(rawUrl);
+
+		// App-level tenant guard: the category FK is single-column by design
+		// (see schema.ts), so cross-user assignment must be rejected here.
+		if (data.skipAi && data.categoryId !== null) {
+			const [owned] = db
+				.select({ id: categories.id })
+				.from(categories)
+				.where(
+					and(
+						eq(categories.id, data.categoryId),
+						eq(categories.userId, user.id),
+					),
+				)
+				.all();
+			if (!owned) throw new Error("Category not found");
+		}
+		// Skip-AI bookmarks never enter the enrichment pipeline, so they are
+		// born processed with whatever the user provided.
+		const manualFields = {
+			title: data.title || null,
+			categoryId: data.categoryId,
+			status: "processed" as const,
+			processedAt: new Date(),
+		};
 
 		const [existing] = db
 			.select({
@@ -291,16 +330,76 @@ export const addBookmark = createServerFn({ method: "POST" })
 				return { result: "duplicate" as const };
 			}
 			// Re-adding a previously deleted URL restores it.
-			db.update(bookmarks)
-				.set({ deletedAt: null, archived: false, updatedAt: new Date() })
-				.where(eq(bookmarks.id, existing.id))
-				.run();
-			if (existing.status !== "processed") {
-				enqueueJob({ kind: "fetch_and_extract", bookmarkId: existing.id });
+			if (data.skipAi) {
+				const tagIds = resolveTagIds(user.id, data.tags);
+				db.transaction((tx) => {
+					tx.delete(bookmarkTags)
+						.where(eq(bookmarkTags.bookmarkId, existing.id))
+						.run();
+					if (tagIds.length > 0) {
+						tx.insert(bookmarkTags)
+							.values(
+								tagIds.map((tagId) => ({
+									bookmarkId: existing.id,
+									tagId,
+									userId: user.id,
+								})),
+							)
+							.run();
+					}
+					tx.update(bookmarks)
+						.set({
+							deletedAt: null,
+							archived: false,
+							...manualFields,
+							updatedAt: new Date(),
+						})
+						.where(eq(bookmarks.id, existing.id))
+						.run();
+				});
+			} else {
+				db.update(bookmarks)
+					.set({ deletedAt: null, archived: false, updatedAt: new Date() })
+					.where(eq(bookmarks.id, existing.id))
+					.run();
+				if (existing.status !== "processed") {
+					enqueueJob({ kind: "fetch_and_extract", bookmarkId: existing.id });
+				}
 			}
 			enqueueFaviconFetch(rawUrl);
 			syncBookmarkFts(existing.id);
 			return { result: "created" as const, id: existing.id };
+		}
+
+		if (data.skipAi) {
+			const tagIds = resolveTagIds(user.id, data.tags);
+			const created = db.transaction((tx) => {
+				const [row] = tx
+					.insert(bookmarks)
+					.values({
+						userId: user.id,
+						url: rawUrl,
+						urlCanonical,
+						...manualFields,
+					})
+					.returning({ id: bookmarks.id })
+					.all();
+				if (tagIds.length > 0) {
+					tx.insert(bookmarkTags)
+						.values(
+							tagIds.map((tagId) => ({
+								bookmarkId: row.id,
+								tagId,
+								userId: user.id,
+							})),
+						)
+						.run();
+				}
+				return row;
+			});
+			enqueueFaviconFetch(rawUrl);
+			syncBookmarkFts(created.id);
+			return { result: "created" as const, id: created.id };
 		}
 
 		const [created] = db
