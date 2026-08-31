@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	createFileRoute,
 	Link,
@@ -7,9 +7,11 @@ import {
 } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { TagCombobox } from "#/components/tag-combobox.tsx";
 import { UserMenu } from "#/components/user-menu.tsx";
 import { getAuthState } from "#/lib/server/functions/auth-meta.ts";
-import { addBookmark } from "#/lib/server/functions/bookmarks.ts";
+import { addBookmark, getUserTags } from "#/lib/server/functions/bookmarks.ts";
+import { getUserCategories } from "#/lib/server/functions/categories.ts";
 
 export const Route = createFileRoute("/_app")({
 	beforeLoad: async () => {
@@ -25,6 +27,21 @@ function AddBookmarkForm() {
 	const [url, setUrl] = useState("");
 	const [notice, setNotice] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [skipAi, setSkipAi] = useState(false);
+	const [title, setTitle] = useState("");
+	const [tags, setTags] = useState<Array<string>>([]);
+	const [categoryId, setCategoryId] = useState<number | null>(null);
+
+	const { data: userTags } = useQuery({
+		queryKey: ["user-tags"],
+		queryFn: () => getUserTags(),
+		enabled: skipAi,
+	});
+	const { data: userCategories } = useQuery({
+		queryKey: ["user-categories"],
+		queryFn: () => getUserCategories(),
+		enabled: skipAi,
+	});
 
 	async function onSubmit(event: React.FormEvent) {
 		event.preventDefault();
@@ -32,14 +49,25 @@ function AddBookmarkForm() {
 		setBusy(true);
 		setNotice(null);
 		try {
-			const result = await addBookmark({ data: { url } });
+			const result = await addBookmark({
+				data: skipAi ? { url, skipAi: true, title, tags, categoryId } : { url },
+			});
 			if (result.result === "duplicate") {
 				setNotice("already saved");
 			} else if (result.result === "invalid") {
 				setNotice("not a valid URL");
 			} else {
 				setUrl("");
+				setTitle("");
+				setTags([]);
+				setCategoryId(null);
 				void queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+				if (skipAi) {
+					void queryClient.invalidateQueries({ queryKey: ["user-tags"] });
+					void queryClient.invalidateQueries({
+						queryKey: ["user-categories"],
+					});
+				}
 			}
 		} catch {
 			setNotice("could not save");
@@ -51,26 +79,78 @@ function AddBookmarkForm() {
 	return (
 		<form
 			onSubmit={onSubmit}
-			className="flex w-full min-w-0 items-center gap-2 sm:order-2 sm:w-auto sm:flex-1"
+			className="flex w-full min-w-0 flex-col gap-2 sm:order-2 sm:w-auto sm:flex-1"
 		>
-			<input
-				value={url}
-				onChange={(e) => {
-					setUrl(e.target.value);
-					setNotice(null);
-				}}
-				placeholder="Paste a URL to save it"
-				aria-label="Add bookmark by URL"
-				className="w-full border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent sm:max-w-md min-[960px]:text-[13px]"
-			/>
-			<button
-				type="submit"
-				disabled={busy || !url.trim()}
-				className="px-3 py-1.5 text-[13px] font-medium text-accent hover:text-accent-hover disabled:opacity-50"
-			>
-				Save
-			</button>
-			{notice ? <span className="text-xs text-ink-muted">{notice}</span> : null}
+			<div className="flex w-full min-w-0 items-center gap-2">
+				<input
+					value={url}
+					onChange={(e) => {
+						setUrl(e.target.value);
+						setNotice(null);
+					}}
+					placeholder="Paste a URL to save it"
+					aria-label="Add bookmark by URL"
+					className="w-full border border-hairline bg-paper px-3 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent sm:max-w-md min-[960px]:text-[13px]"
+				/>
+				<label className="flex shrink-0 items-center gap-1.5 text-[13px] text-ink-secondary">
+					<input
+						type="checkbox"
+						checked={skipAi}
+						onChange={(e) => setSkipAi(e.target.checked)}
+						className="accent-accent"
+					/>
+					Skip AI
+				</label>
+				<button
+					type="submit"
+					disabled={busy || !url.trim()}
+					className="px-3 py-1.5 text-[13px] font-medium text-accent hover:text-accent-hover disabled:opacity-50"
+				>
+					Save
+				</button>
+				{notice ? (
+					<span className="text-xs text-ink-muted">{notice}</span>
+				) : null}
+			</div>
+			{skipAi ? (
+				<div className="flex w-full flex-col gap-2 border border-hairline bg-paper p-3 sm:max-w-md">
+					<label className="flex flex-col gap-1">
+						<span className="text-xs text-ink-secondary">Title (optional)</span>
+						<input
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+							className="border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+						/>
+					</label>
+					<div className="flex flex-col gap-1">
+						<span className="text-xs text-ink-secondary">Tags</span>
+						<TagCombobox
+							value={tags}
+							onChange={setTags}
+							suggestions={userTags ?? []}
+						/>
+					</div>
+					<label className="flex flex-col gap-1">
+						<span className="text-xs text-ink-secondary">Category</span>
+						<select
+							value={categoryId === null ? "" : String(categoryId)}
+							onChange={(e) =>
+								setCategoryId(
+									e.target.value === "" ? null : Number(e.target.value),
+								)
+							}
+							className="self-start border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+						>
+							<option value="">Uncategorized</option>
+							{(userCategories ?? []).map((c) => (
+								<option key={c.id} value={c.id}>
+									{c.name}
+								</option>
+							))}
+						</select>
+					</label>
+				</div>
+			) : null}
 		</form>
 	);
 }
