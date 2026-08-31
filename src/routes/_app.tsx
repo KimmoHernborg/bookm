@@ -112,7 +112,7 @@ function AddBookmarkForm() {
 				) : null}
 			</div>
 			{skipAi ? (
-				<div className="order-last flex w-full min-w-0 flex-col gap-2 border border-hairline bg-paper p-2 sm:flex-row sm:items-center">
+				<div className="order-last flex w-full min-w-0 flex-col gap-2 bg-paper sm:flex-row sm:items-center">
 					<label className="flex min-w-0 items-center gap-2 sm:flex-1">
 						<span className="shrink-0 text-xs text-ink-secondary">Title</span>
 						<input
