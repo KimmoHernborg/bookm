@@ -77,11 +77,10 @@ function AddBookmarkForm() {
 	}
 
 	return (
-		<form
-			onSubmit={onSubmit}
-			className="flex w-full min-w-0 flex-col gap-2 sm:order-2 sm:w-auto sm:flex-1"
-		>
-			<div className="flex w-full min-w-0 items-center gap-2">
+		// display:contents lets the URL row and the details panel participate
+		// directly in the header's wrapping flex row.
+		<form onSubmit={onSubmit} className="contents">
+			<div className="flex w-full min-w-0 items-center gap-2 sm:order-2 sm:w-auto sm:flex-1">
 				<input
 					value={url}
 					onChange={(e) => {
@@ -113,25 +112,30 @@ function AddBookmarkForm() {
 				) : null}
 			</div>
 			{skipAi ? (
-				<div className="flex w-full flex-col gap-2 border border-hairline bg-paper p-3 sm:max-w-md">
-					<label className="flex flex-col gap-1">
-						<span className="text-xs text-ink-secondary">Title (optional)</span>
+				<div className="order-last flex w-full min-w-0 flex-col gap-2 border border-hairline bg-paper p-2 sm:flex-row sm:items-center">
+					<label className="flex min-w-0 items-center gap-2 sm:flex-1">
+						<span className="shrink-0 text-xs text-ink-secondary">Title</span>
 						<input
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
-							className="border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+							placeholder="optional"
+							className="w-full min-w-0 border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none placeholder:text-ink-muted focus:border-accent min-[960px]:text-[13px]"
 						/>
 					</label>
-					<div className="flex flex-col gap-1">
-						<span className="text-xs text-ink-secondary">Tags</span>
-						<TagCombobox
-							value={tags}
-							onChange={setTags}
-							suggestions={userTags ?? []}
-						/>
+					<div className="flex min-w-0 items-center gap-2 sm:flex-1">
+						<span className="shrink-0 text-xs text-ink-secondary">Tags</span>
+						<div className="w-full min-w-0">
+							<TagCombobox
+								value={tags}
+								onChange={setTags}
+								suggestions={userTags ?? []}
+							/>
+						</div>
 					</div>
-					<label className="flex flex-col gap-1">
-						<span className="text-xs text-ink-secondary">Category</span>
+					<label className="flex min-w-0 items-center gap-2">
+						<span className="shrink-0 text-xs text-ink-secondary">
+							Category
+						</span>
 						<select
 							value={categoryId === null ? "" : String(categoryId)}
 							onChange={(e) =>
@@ -139,7 +143,7 @@ function AddBookmarkForm() {
 									e.target.value === "" ? null : Number(e.target.value),
 								)
 							}
-							className="self-start border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent min-[960px]:text-[13px]"
+							className="w-full min-w-0 border border-hairline bg-paper px-2 py-1.5 text-[16px] outline-none focus:border-accent sm:w-auto min-[960px]:text-[13px]"
 						>
 							<option value="">Uncategorized</option>
 							{(userCategories ?? []).map((c) => (
@@ -161,7 +165,7 @@ function AppShell() {
 	return (
 		<div className="min-h-screen">
 			<header className="border-b border-hairline">
-				<div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 sm:px-6">
+				<div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-3 sm:px-6">
 					<div className="flex items-center justify-between gap-4 sm:contents">
 						<Link
 							to="/"
